@@ -87,6 +87,11 @@ module physpkg
   character(len=16) :: macrop_scheme
   character(len=16) :: microp_scheme 
   integer           :: cld_macmic_num_steps    ! Number of macro/micro substeps
+!---ADDED AHK (2022/APR/29)
+  integer           :: cld_clubb_num_steps     ! Number of clubb substeps within a single macro/micro subcycle
+  integer           :: cld_clubb_max_steps     ! Number of total clubb substeps within a single bc physics process time step
+  logical           :: clubb_subcycle          ! if .true., CLUBB process will iterate within the cloud physics sub-cycling
+!---
   logical           :: do_clubb_sgs
   logical           :: use_subcol_microp   ! if true, use subcolumns in microphysics
   logical           :: state_debug_checks  ! Debug physics_state.
@@ -168,6 +173,8 @@ subroutine phys_register
                       macrop_scheme_out        = macrop_scheme,   &
                       microp_scheme_out        = microp_scheme,   &
                       cld_macmic_num_steps_out = cld_macmic_num_steps, &
+                      cld_clubb_num_steps_out  = cld_clubb_num_steps, & !---ADDED AHK (2022/APR/29)
+                      clubb_subcycle_out       = clubb_subcycle, & !---ADDED AHK (2022/APR/29)
                       do_clubb_sgs_out         = do_clubb_sgs,     &
                       do_aerocom_ind3_out      = do_aerocom_ind3,  &
                       use_subcol_microp_out    = use_subcol_microp, &
@@ -1951,6 +1958,10 @@ subroutine tphysbc (ztodt,               &
     integer :: ixcldice, ixcldliq              ! constituent indices for cloud liquid and ice water.
     ! for macro/micro co-substepping
     integer :: macmic_it                       ! iteration variables
+    integer :: clubbit                         ! iteration variables for the CLUBB within the single Macro/microphysics sub-cycle !---ADDED AHK (2022/APR/29)
+    integer :: clubb_it                        ! iteration variables for the CLUBB within the single bc physics time step !---ADDED AHK (2022/APR/29)
+    real(r8) :: cld_clubb_ztodt                ! modified timestep for the CLUBB iteration !---ADDED AHK (2022/APR/29)
+    real(r8) :: cld_clubb_scale                ! re-scale the CLUBB ptend when it is iterated within the macro/microphysics !---ADDED AHK (2022/APR/29)
     real(r8) :: cld_macmic_ztodt               ! modified timestep
 
     character(len=2) :: char_macmic_it
@@ -2464,7 +2475,12 @@ end if
     elseif( microp_scheme == 'MG' ) then
        ! Start co-substepping of macrophysics and microphysics
        cld_macmic_ztodt = ztodt/cld_macmic_num_steps
-
+       !---ADDED AHK (2022/APR/29)
+       ! calculate the size of the CLUBB's timestep when it is iterated within
+       ! the macro/microphysics
+       cld_clubb_ztodt = cld_macmic_ztodt/cld_clubb_num_steps
+       cld_clubb_scale = cld_macmic_num_steps * cld_clubb_num_steps
+       cld_clubb_max_steps = cld_clubb_num_steps * cld_macmic_num_steps
        ! Clear precip fields that should accumulate.
        prec_sed_macmic = 0._r8
        snow_sed_macmic = 0._r8
@@ -2544,7 +2560,35 @@ end if
              ! =====================================================
              !    CLUBB call (PBL, shallow convection, macrophysics)
              ! =====================================================  
-   
+             if (clubb_subcycle) then
+               do clubbit = 1,cld_clubb_num_steps
+                clubb_it = (macmic_it-1)*cld_clubb_num_steps+clubbit
+                call clubb_tend_cam(state,ptend,pbuf,diag,cld_clubb_ztodt,&
+                     cmfmc, cam_in, cam_out, sgh30, clubb_it, cld_clubb_max_steps,         &
+                     dlf, det_s, det_ice, lcldo)
+                !  Since we "added" the reserved liquid back in this routine, we
+                !  need 
+                !    to account for it in the energy checker
+                flx_cnd(:ncol) = -1._r8*rliq(:ncol)
+                flx_heat(:ncol) = cam_in%shf(:ncol) + det_s(:ncol)
+
+                ! Unfortunately, physics_update does not know what time period
+                ! "tend" is supposed to cover, and therefore can't update it
+                ! with substeps correctly. For now, work around this by scaling
+                ! ptend down by the number of substeps, then applying it for
+                ! the full time (ztodt).
+                call physics_ptend_scale(ptend, 1._r8/cld_clubb_scale,ncol)
+
+                !    Update physics tendencies and copy state to state_eq,
+                !    because that is 
+                !      input for microphysics              
+                call physics_update(state, ptend, ztodt, tend)
+                call check_energy_chng(state, tend, "clubb_tend", nstep, ztodt,&
+                     cam_in%cflx(:,1)/cld_clubb_scale,flx_cnd/cld_clubb_scale, &
+                     det_ice/cld_clubb_scale,flx_heat/cld_clubb_scale)
+               end do
+             else
+ 
              call clubb_tend_cam(state,ptend,pbuf,diag,cld_macmic_ztodt,&
                 cmfmc, cam_in, cam_out, sgh30, macmic_it, cld_macmic_num_steps, & 
                 dlf, det_s, det_ice, lcldo)
@@ -2566,7 +2610,7 @@ end if
                 call check_energy_chng(state, tend, "clubb_tend", nstep, ztodt, &
                      cam_in%cflx(:,1)/cld_macmic_num_steps, flx_cnd/cld_macmic_num_steps, &
                      det_ice/cld_macmic_num_steps, flx_heat/cld_macmic_num_steps)
- 
+             end if 
           endif
 
           call t_stopf('macrop_tend')

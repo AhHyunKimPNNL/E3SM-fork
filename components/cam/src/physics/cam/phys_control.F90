@@ -112,8 +112,11 @@ logical, public, protected :: print_fixer_message  = .false.     ! switch on err
 integer, public, protected :: ieflx_opt = 0
 logical, public, protected :: l_ieflx_fix = .false.
 
-! Macro/micro-physics co-substeps
+! Macro/micro-physics co-substeps (ADDED, AHK, 2022-APR)
 integer           :: cld_macmic_num_steps = 1
+logical           :: clubb_subcycle  = .false.  ! if .true., CLUBB process will iterate within the cloud physics sub-cycling
+integer           :: cld_clubb_num_steps = 1    ! number of CLUBB process iteration within the cloud physics process sub-cycling
+!---
 
 logical :: prog_modal_aero ! determines whether prognostic modal aerosols are present in the run.
 
@@ -185,6 +188,7 @@ subroutine phys_ctl_readnl(nlfile)
       print_fixer_message, & 
       use_hetfrz_classnuc, use_gw_oro, use_gw_front, use_gw_convect, &
       cld_macmic_num_steps, micro_do_icesupersat, &
+      cld_clubb_num_steps, clubb_subcycle, & !---ADDED AHK (2022/APR/29)
       fix_g1_err_ndrop, ssalt_tuning, resus_fix, convproc_do_aer, &
       convproc_do_gas, convproc_method_activate, liqcf_fix, regen_fix, demott_ice_nuc, pergro_mods, pergro_test_active, &
       mam_amicphys_optaa, n_so4_monolayers_pcage,micro_mg_accre_enhan_fac, &
@@ -271,6 +275,8 @@ subroutine phys_ctl_readnl(nlfile)
    call mpibcast(l_st_mic,                        1 , mpilog,  0, mpicom)
    call mpibcast(l_rad,                           1 , mpilog,  0, mpicom)
    call mpibcast(cld_macmic_num_steps,            1 , mpiint,  0, mpicom)
+   call mpibcast(cld_clubb_num_steps,             1 , mpiint,  0, mpicom)!---ADDED AHK (2022/APR/29)
+   call mpibcast(clubb_subcycle,                  1 , mpilog,  0, mpicom)!---ADDED AHK (2022/APR/29)
    call mpibcast(prc_coef1,                       1 , mpir8,   0, mpicom)
    call mpibcast(prc_exp,                         1 , mpir8,   0, mpicom)
    call mpibcast(prc_exp1,                        1 , mpir8,   0, mpicom)
@@ -417,6 +423,7 @@ subroutine phys_getopts(deep_scheme_out, shallow_scheme_out, eddy_scheme_out, &
                         use_qqflx_fixer_out, & 
                         print_fixer_message_out, & 
                         cld_macmic_num_steps_out, micro_do_icesupersat_out, &
+                        cld_clubb_num_steps_out, clubb_subcycle_out, & !---ADDED AHK (2022/APR/29)
                         fix_g1_err_ndrop_out, ssalt_tuning_out,resus_fix_out,convproc_do_aer_out,  &
                         convproc_do_gas_out, convproc_method_activate_out, mam_amicphys_optaa_out, n_so4_monolayers_pcage_out, &
                         micro_mg_accre_enhan_fac_out, liqcf_fix_out, regen_fix_out,demott_ice_nuc_out, pergro_mods_out, pergro_test_active_out &
@@ -493,6 +500,8 @@ subroutine phys_getopts(deep_scheme_out, shallow_scheme_out, eddy_scheme_out, &
    logical,           intent(out), optional :: mg_prc_coeff_fix_out
    logical,           intent(out), optional :: rrtmg_temp_fix_out
    integer,           intent(out), optional :: cld_macmic_num_steps_out
+   integer,           intent(out), optional :: cld_clubb_num_steps_out !---ADDED AHK (2022/APR/29)
+   logical,           intent(out), optional :: clubb_subcycle_out !---ADDED AHK (2022/APR/29)
    real(r8),          intent(out), optional :: prc_coef1_out
    real(r8),          intent(out), optional :: prc_exp_out
    real(r8),          intent(out), optional :: prc_exp1_out
@@ -556,6 +565,8 @@ subroutine phys_getopts(deep_scheme_out, shallow_scheme_out, eddy_scheme_out, &
    if ( present(l_st_mic_out            ) ) l_st_mic_out          = l_st_mic
    if ( present(l_rad_out               ) ) l_rad_out             = l_rad
    if ( present(cld_macmic_num_steps_out) ) cld_macmic_num_steps_out = cld_macmic_num_steps
+   if ( present(cld_clubb_num_steps_out ) ) cld_clubb_num_steps_out  = cld_clubb_num_steps !---ADDED AHK (2022/APR/29)
+   if ( present(clubb_subcycle_out      ) ) clubb_subcycle_out       = clubb_subcycle !---ADDED AHK (2022/APR/29)
    if ( present(prc_coef1_out           ) ) prc_coef1_out            = prc_coef1
    if ( present(prc_exp_out             ) ) prc_exp_out              = prc_exp
    if ( present(prc_exp1_out            ) ) prc_exp1_out             = prc_exp1 

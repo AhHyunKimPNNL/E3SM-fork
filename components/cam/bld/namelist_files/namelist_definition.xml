@@ -1293,7 +1293,7 @@ and the masked values will be send to history buffer.
 Default: none
 </entry>
 
-<entry id="qoi_chkpt" type="char*10(250)"  category="history"
+<entry id="qoi_chkpt" type="char*10(99)"  category="history"
        group="conditional_diag_nl" valid_values="" >
 Checkpoints at which QoIs will be monitored.
 Default: none
@@ -1318,7 +1318,7 @@ if so, wet or dry.
 Default: none
 </entry>
 
-<entry id="chkpt_x_dp" type="integer(250)"  category="history"
+<entry id="chkpt_x_dp" type="integer(99)"  category="history"
        group="conditional_diag_nl" valid_values="" >
 Whether QoIs at a checkpoint should be multiplied by dp 
 for output if applicable; if so, wet or dry.
@@ -2038,6 +2038,20 @@ Default: FALSE
        group="phys_ctl_nl" valid_values="" >
 Number of macrophysics/microphysics substeps.
 Default: 1
+</entry>
+
+<entry id="cld_clubb_num_steps" type="integer" category="conv"
+       group="phys_ctl_nl" valid_values="" >
+Number of macrophysics substeps within the single macro/microphysics sub step.
+ADDED by AHK (2022-APR)
+Default: 1
+</entry>
+
+<entry id="clubb_subcycle" type="logical" category="conv"
+       group="phys_ctl_nl" valid_values="" >
+Decide if you want to turn on the clubb subcycle.
+ADDED by AHK (2022-APR)
+Default: .false.
 </entry>
 
 <!-- Cldwat -->
