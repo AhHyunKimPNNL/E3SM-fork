@@ -351,5 +351,114 @@ subroutine compute_cape_diags( state, pbuf, pcols, pver, cape_out, dcape_out )
 
  end subroutine compute_cape_diags
 !---------------------------
+subroutine compute_thv_in_clubb( state, ncol, pver, thv_out )
+!-------------------------------------------------------------------------------------------
+! Purpose: 
+! - calculate virtual potential temperature used CLUBB calculation  
+! - this calculation is for condiDiag output only.
+!
+! History: AHK, 2023
+!-------------------------------------------------------------------------------------------
+  use physics_types,          only: physics_state, physics_ptend
+  use constituents,           only: cnst_get_ind
+
+  use physconst,      only: zvir, rair, cpair
+
+  type(physics_state),intent(in),target:: state
+
+  integer, intent(in)  :: ncol, pver
+  integer :: i, k
+  integer :: ixcldliq, ixq
+  real(r8), parameter :: p0_clubb = 100000._r8
+
+  real(r8) :: exner_clubb(ncol,pver)         ! Exner function consistent with CLUBB          [-]
+  real(r8),intent(out)  :: thv_out(ncol,pver)
+
+ !  Get indicees for q and cloud
+   call cnst_get_ind('Q',ixq)
+   call cnst_get_ind('CLDLIQ',ixcldliq)
+
+
+   !  Compute exner function consistent with CLUBB's definition, which uses a
+   !  constant surface pressure.  CAM's exner (in state does not).  
+   !  Therefore, for consistent treatment with CLUBB code, 
+   !  anytime exner is needed to treat CLUBB variables (such as thlm), use "exner_clubb"
+
+   do k=1,pver
+     do i=1,ncol
+       exner_clubb(i,k) = 1._r8/((state%pmid(i,k)/p0_clubb)**(rair/cpair))
+       thv_out(i,k) = state%t(i,k) * exner_clubb(i,k) * (1._r8 + zvir * state%q(i,k,ixq) &
+                      - state%q(i,k,ixcldliq) )
+     enddo
+   enddo
+
+
+end subroutine compute_thv_in_clubb
+
+subroutine compute_thv_diag( ncol, pver, tair, exner, q, thv_out )
+!-------------------------------------------------------------------------------------------
+! Purpose: 
+! - calculate virtual potential temperature used in planatary boundary layer
+! height (PBLH) calculation  
+! - this calculation is for condiDiag output only.
+!
+! History: AHK, 2023
+!-------------------------------------------------------------------------------------------
+  use physconst,      only: zvir
+  integer, intent(in)  :: ncol, pver
+  integer :: i, k
+  real(r8),intent(in)  :: tair(ncol,pver)  
+  real(r8),intent(in)  :: exner(ncol,pver)  
+  real(r8),intent(in)  :: q(ncol,pver)  
+  real(r8),intent(out)  :: thv_out(ncol,pver)  
+
+  do k=1,pver
+    do i=1,ncol
+      thv_out(i,k) = tair(i,k) * exner(i,k) * (1.0_r8 + zvir*q(i,k))
+    enddo
+  enddo
+
+end subroutine compute_thv_diag
+subroutine compute_tl_diag( state, ncol, pver, tl_out )
+!-------------------------------------------------------------------------------------------
+! Purpose: 
+! - calculate liquid temperature used CLUBB calculation  
+! - this calculation is for condiDiag output only.
+!
+! History: AHK, 2023
+!-------------------------------------------------------------------------------------------
+  use physics_types,          only: physics_state, physics_ptend
+  use constituents,           only: cnst_get_ind
+
+  use physconst,      only: zvir, rair, cpair, latvap
+
+  type(physics_state),intent(in),target:: state
+
+  integer, intent(in)  :: ncol, pver
+  integer :: i, k
+  integer :: ixcldliq, ixq
+  real(r8), parameter :: p0_clubb = 100000._r8
+
+  real(r8) :: exner_clubb(ncol,pver)         ! Exner function consistent withCLUBB          [-]
+  real(r8),intent(out)  :: tl_out(ncol,pver)
+
+ !  Get indicees for q and cloud
+   call cnst_get_ind('Q',ixq)
+   call cnst_get_ind('CLDLIQ',ixcldliq)
+
+
+   !  Compute exner function consistent with CLUBB's definition, which uses a
+   !  constant surface pressure.  CAM's exner (in state does not).  
+   !  Therefore, for consistent treatment with CLUBB code, 
+   !  anytime exner is needed to treat CLUBB variables (such as thlm), use
+   !  "exner_clubb"
+
+   do k=1,pver
+     do i=1,ncol
+       exner_clubb(i,k) = 1._r8/((state%pmid(i,k)/p0_clubb)**(rair/cpair))
+       tl_out(i,k) = (state%t(i,k) * exner_clubb(i,k) - (latvap/cpair)*state%q(i,k,ixcldliq) )/exner_clubb(i,k)
+     enddo
+   enddo
+end subroutine compute_tl_diag
 
 end module misc_diagnostics
