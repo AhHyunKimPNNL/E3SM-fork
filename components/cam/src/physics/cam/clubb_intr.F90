@@ -128,6 +128,8 @@ module clubb_intr
   logical            :: micro_do_icesupersat
   logical            :: history_budget
 
+  integer            :: no_dlf_liq     ! ADDED AHK (24/Feb/2023)
+
   integer            :: history_budget_histfile_num
   integer            :: edsclr_dim       ! Number of scalars to transport in CLUBB
   integer            :: offset
@@ -138,6 +140,7 @@ module clubb_intr
     wp3_idx, &          ! third moment of vertical velocity
     wpthlp_idx, &       ! turbulent flux of thetal
     wprtp_idx, &        ! turbulent flux of total water
+    wprtp_cnd_idx, &    ! turbulent flux of total water for condidiag
     rtpthlp_idx, &      ! covariance of thetal and rt
     rtp2_idx, &         ! variance of total water
     thlp2_idx, &        ! variance of thetal
@@ -267,11 +270,11 @@ module clubb_intr
     call pbuf_add_field('FICE',       'physpkg',dtype_r8, (/pcols,pver/),               fice_idx)
     call pbuf_add_field('RAD_CLUBB',  'global', dtype_r8, (/pcols,pver/),               radf_idx)
     call pbuf_add_field('CMELIQ',     'physpkg',dtype_r8, (/pcols,pver/),                  cmeliq_idx)
-    
-    call pbuf_add_field('WP2_nadv',        'global', dtype_r8, (/pcols,pverp,dyn_time_lvls/), wp2_idx)
+    call pbuf_add_field('WP2_nadv',        'global', dtype_r8, (/pcols,pverp,dyn_time_lvls/), wp2_idx) 
     call pbuf_add_field('WP3_nadv',        'global', dtype_r8, (/pcols,pverp,dyn_time_lvls/), wp3_idx)
     call pbuf_add_field('WPTHLP_nadv',     'global', dtype_r8, (/pcols,pverp,dyn_time_lvls/), wpthlp_idx)
     call pbuf_add_field('WPRTP_nadv',      'global', dtype_r8, (/pcols,pverp,dyn_time_lvls/), wprtp_idx)
+    call pbuf_add_field('WPRTP_cnd',      'physpkg', dtype_r8, (/pcols,pverp/),  wprtp_cnd_idx) ! ADDED AHK (24/Feb/2023)
     call pbuf_add_field('RTPTHLP_nadv',    'global', dtype_r8, (/pcols,pverp,dyn_time_lvls/), rtpthlp_idx)
     call pbuf_add_field('RTP2_nadv',       'global', dtype_r8, (/pcols,pverp,dyn_time_lvls/), rtp2_idx)
     call pbuf_add_field('THLP2_nadv',      'global', dtype_r8, (/pcols,pverp,dyn_time_lvls/), thlp2_idx)
@@ -376,6 +379,7 @@ end subroutine clubb_init_cnst
     namelist /clubbpbl_diff_nl/ clubb_cloudtop_cooling, clubb_rainevap_turb, clubb_expldiff, &
                                 clubb_do_adv, clubb_do_deep, clubb_timestep, clubb_stabcorrect, &
                                 clubb_rnevap_effic, clubb_liq_deep, clubb_liq_sh, clubb_ice_deep, &
+                                no_dlf_liq, & ! ADDED AHK (24/Feb/2023)
                                 clubb_ice_sh, clubb_tk1, clubb_tk2, relvar_fix
 
     !----- Begin Code -----
@@ -390,7 +394,7 @@ end subroutine clubb_init_cnst
     relvar_fix         = .false.   ! Initialize to false
     clubb_do_adv       = .false.   ! Initialize to false
     clubb_do_deep      = .false.   ! Initialize to false
-
+    no_dlf_liq         = 0   ! ADDED AHK (24/Feb/2023) 0 = ctrl, 1=dlf_liq.eq.0, 2= both dlf_liq and dlf_ice .eq. 0
     !  Read namelist to determine if CLUBB history should be called
     if (masterproc) then
       iunit = getunit()
@@ -435,6 +439,7 @@ end subroutine clubb_init_cnst
       call mpibcast(clubb_tk1,                1,   mpir8,   0, mpicom)
       call mpibcast(clubb_tk2,                1,   mpir8,   0, mpicom)
       call mpibcast(relvar_fix,               1,   mpilog,  0, mpicom)
+      call mpibcast(no_dlf_liq,               1,   mpiint,  0, mpicom) ! ADDED AHK (24/Feb/2023)
 #endif
 
     !  Overwrite defaults if they are true
@@ -728,6 +733,7 @@ end subroutine clubb_init_cnst
     call addfld ('RCM_CLUBB',     (/ 'ilev' /), 'A',        'g/kg', 'Cloud Water Mixing Ratio')
     call addfld ('WPRCP_CLUBB',     (/ 'ilev' /), 'A',      'W/m2', 'Liquid Water Flux')
     call addfld ('CLOUDFRAC_CLUBB', (/ 'lev' /),  'A',  'fraction', 'Cloud Fraction')
+    call addfld ('AST_CLUBB', (/ 'lev' /),  'A',  'fraction', 'Cloud Fraction')
     call addfld ('RCMINLAYER_CLUBB',     (/ 'ilev' /), 'A', 'g/kg', 'Cloud Water in Layer')
     call addfld ('CLOUDCOVER_CLUBB', (/ 'ilev' /), 'A', 'fraction', 'Cloud Cover') 
     call addfld ('WPTHVP_CLUBB',     (/ 'lev' /),  'A',     'W/m2', 'Buoyancy Flux')
@@ -806,6 +812,7 @@ end subroutine clubb_init_cnst
        call add_default('RCM_CLUBB',        1, ' ')
        call add_default('WPRCP_CLUBB',      1, ' ')
        call add_default('CLOUDFRAC_CLUBB',  1, ' ')
+       call add_default('AST_CLUBB',  1, ' ')
        call add_default('RCMINLAYER_CLUBB', 1, ' ')
        call add_default('CLOUDCOVER_CLUBB', 1, ' ')
        call add_default('WPTHVP_CLUBB',     1, ' ')
@@ -822,8 +829,10 @@ end subroutine clubb_init_cnst
        call add_default('SL',               1, ' ')
        call add_default('QT',               1, ' ')
        call add_default('CONCLD',           1, ' ')
+       call add_default('THETAL',           1, ' ')
     else 
        call add_default('CLOUDFRAC_CLUBB',  1, ' ')
+       call add_default('AST_CLUBB',  1, ' ')
        call add_default('CONCLD',           1, ' ')
     end if
 
@@ -856,6 +865,7 @@ end subroutine clubb_init_cnst
        call pbuf_set_field(pbuf2d, wp3_idx,     0.0_r8)
        call pbuf_set_field(pbuf2d, wpthlp_idx,  0.0_r8)
        call pbuf_set_field(pbuf2d, wprtp_idx,   0.0_r8)
+       call pbuf_set_field(pbuf2d, wprtp_cnd_idx,0.0_r8) ! ADDED AHK (24/Feb/2023)
        call pbuf_set_field(pbuf2d, rtpthlp_idx, 0.0_r8)
        call pbuf_set_field(pbuf2d, rtp2_idx,    rt_tol**2)
        call pbuf_set_field(pbuf2d, thlp2_idx,   thl_tol**2)
@@ -1168,7 +1178,6 @@ end subroutine clubb_init_cnst
    character(len=200)                    :: temp1, sub                  ! Strings needed for CLUBB output
    logical                               :: l_Lscale_plume_centered, l_use_ice_latent
 
-
    ! --------------- !
    ! Pointers        !
    ! --------------- !
@@ -1177,6 +1186,7 @@ end subroutine clubb_init_cnst
    real(r8), pointer, dimension(:,:) :: wp3      ! third moment of vertical velocity            [m^3/s^3]
    real(r8), pointer, dimension(:,:) :: wpthlp   ! turbulent flux of thetal                     [m/s K]
    real(r8), pointer, dimension(:,:) :: wprtp    ! turbulent flux of moisture                   [m/s kg/kg]
+   real(r8), pointer, dimension(:,:) :: wprtp_out! turbulent flux of moisture  ADDED AHK (24/Feb/2023)   [m/s kg/kg]
    real(r8), pointer, dimension(:,:) :: rtpthlp  ! covariance of thetal and qt                  [kg/kg K]
    real(r8), pointer, dimension(:,:) :: rtp2     ! moisture variance                            [kg^2/kg^2]
    real(r8), pointer, dimension(:,:) :: thlp2    ! temperature variance                         [K^2]
@@ -1292,6 +1302,7 @@ end subroutine clubb_init_cnst
    call pbuf_get_field(pbuf, wp3_idx,     wp3,     start=(/1,1,itim_old/), kount=(/pcols,pverp,1/))
    call pbuf_get_field(pbuf, wpthlp_idx,  wpthlp,  start=(/1,1,itim_old/), kount=(/pcols,pverp,1/))
    call pbuf_get_field(pbuf, wprtp_idx,   wprtp,   start=(/1,1,itim_old/), kount=(/pcols,pverp,1/))
+   call pbuf_get_field(pbuf, wprtp_cnd_idx, wprtp_out) ! ADDED AHK (24/Feb/2023)
    call pbuf_get_field(pbuf, rtpthlp_idx, rtpthlp, start=(/1,1,itim_old/), kount=(/pcols,pverp,1/))
    call pbuf_get_field(pbuf, rtp2_idx,    rtp2,    start=(/1,1,itim_old/), kount=(/pcols,pverp,1/))
    call pbuf_get_field(pbuf, thlp2_idx,   thlp2,   start=(/1,1,itim_old/), kount=(/pcols,pverp,1/))
@@ -2200,7 +2211,15 @@ end subroutine clubb_init_cnst
                                      3._r8 * (                         dlf2(i,k)    *  dum1 ) &
                                      / (4._r8*3.14_r8*clubb_ice_sh**3*500._r8)     ! Shallow Convection
          ptend_loc%s(i,k)          = dlf(i,k) * dum1 * latice
- 
+        if(no_dlf_liq.ge.1) then ! ADDED AHK (24/Feb/2023) 
+         ptend_loc%q(i,k,ixcldliq) = 0.0_r8
+         ptend_loc%q(i,k,ixnumliq) = 0.0_r8
+        end if
+        if (no_dlf_liq.ge.2) then
+         ptend_loc%q(i,k,ixcldice) = 0.0_r8
+         ptend_loc%q(i,k,ixnumice) = 0.0_r8
+         ptend_loc%s(i,k) = 0.0_r8
+        end if
          ! Only rliq is saved from deep convection, which is the reserved liquid.  We need to keep
          !   track of the integrals of ice and static energy that is effected from conversion to ice
          !   so that the energy checker doesn't complain.
@@ -2307,6 +2326,11 @@ end subroutine clubb_init_cnst
          rtpthlp_output(i,k) = rtpthlp(i,k)-(apply_const*rtpthlp_const)                !  rtpthlp output
          wp3_output(i,k)     = wp3(i,k) - (apply_const*wp3_const)                      !  wp3 output
          tke(i,k)            = 0.5_r8*(up2(i,k)+vp2(i,k)+wp2(i,k))                     !  turbulent kinetic energy
+
+! AHK ADDED to get output in the checkpoint
+         wprtp_out(i,k) =  wprtp_output(i,k)
+         !wprtp(i,k) = wprtp_output(i,k)
+         !wpthlp(i,k) = wpthlp_output(i,k) 
       enddo
    enddo
    
@@ -2491,6 +2515,7 @@ end subroutine clubb_init_cnst
    tmp_array = wprcp(:ncol,:)*latvap
    call outfld( 'WPRCP_CLUBB',      tmp_array,               ncol,  lchnk )
    call outfld( 'CLOUDFRAC_CLUBB',  alst,                    pcols, lchnk )
+   call outfld( 'AST_CLUBB',        ast,                     pcols, lchnk )
    tmp_array = rcm_in_layer(:ncol,:)*1000._r8
    call outfld( 'RCMINLAYER_CLUBB', tmp_array,               ncol,  lchnk )
    call outfld( 'CLOUDCOVER_CLUBB', cloud_frac,              pcols, lchnk )

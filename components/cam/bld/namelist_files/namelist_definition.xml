@@ -1293,7 +1293,7 @@ and the masked values will be send to history buffer.
 Default: none
 </entry>
 
-<entry id="qoi_chkpt" type="char*10(99)"  category="history"
+<entry id="qoi_chkpt" type="char*10(250)"  category="history"
        group="conditional_diag_nl" valid_values="" >
 Checkpoints at which QoIs will be monitored.
 Default: none
@@ -1318,7 +1318,7 @@ if so, wet or dry.
 Default: none
 </entry>
 
-<entry id="chkpt_x_dp" type="integer(99)"  category="history"
+<entry id="chkpt_x_dp" type="integer(250)"  category="history"
        group="conditional_diag_nl" valid_values="" >
 Whether QoIs at a checkpoint should be multiplied by dp 
 for output if applicable; if so, wet or dry.
@@ -2042,15 +2042,13 @@ Default: 1
 
 <entry id="cld_clubb_num_steps" type="integer" category="conv"
        group="phys_ctl_nl" valid_values="" >
-Number of macrophysics substeps within the single macro/microphysics sub step.
-ADDED by AHK (2022-APR)
+Number of macrophysics substeps.
 Default: 1
 </entry>
 
 <entry id="clubb_subcycle" type="logical" category="conv"
        group="phys_ctl_nl" valid_values="" >
 Decide if you want to turn on the clubb subcycle.
-ADDED by AHK (2022-APR)
 Default: .false.
 </entry>
 
@@ -2902,7 +2900,15 @@ Temporary variable for a bug fix. Introduced to maintain BFB, must be REMOVED la
 Default: FALSE
 </entry>
 
+<entry id="no_dlf_liq" type="integer" category="pblrad"
+       group="clubbpbl_diff_nl" valid_values="" >
+Switch for dlf liquid
+0 = apply both liquid and ice detrainment after CLUBB
+1 = apply only detraind ice after CLUBB
+2 = do not apply detrainment from deep convection scheme after CLUBB
 
+Default: 0
+</entry>
 <!-- Clubb tunable parameters -->
 
 <entry id="C1" type="real" category="pblrad"
