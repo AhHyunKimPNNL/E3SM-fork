@@ -523,6 +523,44 @@ subroutine get_values( arrayout, varname, state, pbuf, cam_in, cam_out )
             idx = pbuf_get_index('CLD')  ; call pbuf_get_field( pbuf, idx, ptr2d )
             arrayout(:,:) = ptr2d
 
+        case('AST')
+            idx = pbuf_get_index('AST')  ; call pbuf_get_field( pbuf, idx, ptr2d)
+            arrayout(:,:) = ptr2d
+
+        case('WP2')
+            idx = pbuf_get_index('WP2_nadv')  ; call pbuf_get_field( pbuf, idx, ptr2d)
+            arrayout(:,:) = ptr2d
+
+        case('WP3')
+            idx = pbuf_get_index('WP3_nadv')  ; call pbuf_get_field( pbuf, idx, ptr2d)
+            arrayout(:,:) = ptr2d
+
+        case('WPTHLP')
+            idx = pbuf_get_index('WPTHLP_nadv')  ; call pbuf_get_field( pbuf, idx, ptr2d)
+            arrayout(:,:) = ptr2d
+
+        case('WPRTP')
+            idx = pbuf_get_index('WPRTP_cnd')  ; call pbuf_get_field( pbuf, idx, ptr2d)
+            arrayout(:,:) = ptr2d
+
+        case('WPTHVP')
+            idx = pbuf_get_index('WPTHVP_nadv')  ; call pbuf_get_field( pbuf,idx, ptr2d)
+            arrayout(:,:) = ptr2d
+
+        case('PRAO')
+            idx = pbuf_get_index('PRAO_out')  ; call pbuf_get_field(pbuf,idx,ptr2d)
+            arrayout(:,:) = ptr2d
+
+        case('PRCO')
+            idx = pbuf_get_index('PRCO_out')  ; call pbuf_get_field(pbuf,idx,ptr2d)
+            arrayout(:,:) = ptr2d
+
+        case('RELVAR')
+            idx = pbuf_get_index('RELVAR')  ; call pbuf_get_field(pbuf,idx, ptr2d)
+            arrayout(:,:) = ptr2d
+        case('NPCCN')
+            idx = pbuf_get_index('NPCCN')  ; call pbuf_get_field(pbuf,idx, ptr2d)
+            arrayout(:,:) = ptr2d
         !-----------------------------------------------------------
         ! physical quantities that need to be calculated on the fly 
         !-----------------------------------------------------------
@@ -565,6 +603,18 @@ subroutine get_values( arrayout, varname, state, pbuf, cam_in, cam_out )
         case ('dCAPE')
           call compute_cape_diags( state, pbuf, pcols, pver, cape, arrayout(:,1:3) ) ! 4xin, 2xout
           arrayout(:,4:) = 0._r8
+
+        case ('THV')
+          call compute_thv_diag( ncol, pver, state%t(:ncol,:),            &! in
+                                     state%exner(:ncol,:), state%q(:ncol,:,1), &!in
+                                     arrayout(:ncol,:)  )     !out
+        case ('THVC')
+          call compute_thv_in_clubb( state, ncol, pver, & !in
+                                     arrayout(:ncol,:) ) !out
+
+        case ('TL')
+          call compute_tl_diag( state, ncol, pver, &   ! in
+                                     arrayout(:ncol,:))! out
 
         !-----------------------------------------------------------------------------------
         ! The following were added mostly for testing of the conditional diag functionality
