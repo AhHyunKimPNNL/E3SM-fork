@@ -164,6 +164,8 @@ integer :: &
    wsedl_idx,          &
    rei_idx,            &
    rel_idx,            &
+   prao_idx,           &  ! ADDED AHK (09/Feb/2023) 
+   prco_idx,           &  ! ADDED AHK (09/Feb/2023)
    dei_idx,            &
    mu_idx,             &
    prer_evap_idx,            &
@@ -456,6 +458,9 @@ subroutine micro_mg_cam_register
   call pbuf_add_field('REI',        'physpkg',dtype_r8,(/pcols,pver/), rei_idx)
   call pbuf_add_field('REL',        'physpkg',dtype_r8,(/pcols,pver/), rel_idx)
 
+  call pbuf_add_field('PRAO_out',   'physpkg',dtype_r8,(/pcols,pver/), prao_idx) ! ADDED AHK (09/Feb/2023) 
+  call pbuf_add_field('PRCO_out',   'physpkg',dtype_r8,(/pcols,pver/), prco_idx) ! ADDED AHK (09/Feb/2023)
+
   ! Mitchell ice effective diameter for radiation
   call pbuf_add_field('DEI',        'physpkg',dtype_r8,(/pcols,pver/), dei_idx)
   ! Size distribution shape parameter for radiation
@@ -531,6 +536,10 @@ subroutine micro_mg_cam_register
 
     call pbuf_register_subcol('REI',         'micro_mg_cam_register', rei_idx)
     call pbuf_register_subcol('REL',         'micro_mg_cam_register', rel_idx)
+
+    call pbuf_register_subcol('PRAO_out',    'micro_mg_cam_register', prao_idx) ! ADDED AHK (09/Feb/2023)
+    call pbuf_register_subcol('PRCO_out',    'micro_mg_cam_register', prco_idx) ! ADDED AHK (09/Feb/2023)
+
 
     ! Mitchell ice effective diameter for radiation
     call pbuf_register_subcol('DEI',         'micro_mg_cam_register', dei_idx)
@@ -1082,7 +1091,7 @@ end subroutine micro_mg_cam_init
 
 !===============================================================================
 
-subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf)
+subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf, diag, cam_in, cam_out, macmic_it)
 
    use micro_mg_utils, only: size_dist_param_basic, size_dist_param_liq, &
         mg_liq_props, mg_ice_props, avg_diameter, rhoi, rhosn, rhow, rhows, &
@@ -1102,11 +1111,24 @@ subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf)
 
    use output_aerocom_aie, only: do_aerocom_ind3
 
+   ! ADDED AHK (09/Feb/2023)
+   use conditional_diag,      only: cnd_diag_t          ! ADDED AHK (09/Feb/2023)
+   use conditional_diag_main, only: cnd_diag_checkpoint
+   use camsrfexch,            only: cam_in_t, cam_out_t
+
 
    type(physics_state),         intent(in)    :: state
    type(physics_ptend),         intent(out)   :: ptend
    real(r8),                    intent(in)    :: dtime
    type(physics_buffer_desc),   pointer       :: pbuf(:)
+
+   ! ADDED AHK (09/Feb/2023)
+   type(cnd_diag_t), optional,  intent(inout) :: diag       !conditionally sampled fields
+   type(cam_in_t),   optional,  intent(in)    :: cam_in
+   type(cam_out_t),  optional,  intent(in)    :: cam_out
+   integer, optional, intent(in) :: macmic_it
+   integer :: mic_it
+   character(len=2) :: char_mic_it
 
    ! Local variables
    integer :: lchnk, ncol, psetcols, ngrdcol
@@ -1493,6 +1515,11 @@ subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf)
    real(r8), pointer :: des_grid(:,:)
    real(r8), pointer :: iclwpst_grid(:,:)
 
+   real(r8), pointer :: prco_out(:,:) ! ADDED AHK (09/Feb/2023)
+   real(r8), pointer :: prao_out(:,:) ! ADDED AHK (09/Feb/2023)
+   real(r8) :: prco_dummy(pcols,pver) ! ADDED AHK (09/Feb/2023)
+   real(r8) :: prao_dummy(pcols,pver) ! ADDED AHK (09/Feb/2023)
+
    real(r8) :: rho_grid(pcols,pver)
    real(r8) :: liqcldf_grid(pcols,pver)
    real(r8) :: qsout_grid(pcols,pver)
@@ -1670,7 +1697,9 @@ subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf)
    call pbuf_get_field(pbuf, icswp_idx,       icswp,       col_type=col_type)
    call pbuf_get_field(pbuf, rel_idx,         rel,         col_type=col_type)
    call pbuf_get_field(pbuf, rei_idx,         rei,         col_type=col_type)
-   call pbuf_get_field(pbuf, wsedl_idx,       wsedl,       col_type=col_type)
+   call pbuf_get_field(pbuf, prao_idx,        prao_out,    col_type=col_type) ! ADDED AHK (09/Feb/2023)
+   call pbuf_get_field(pbuf, prco_idx,        prco_out,    col_type=col_type) ! ADDED AHK (09/Feb/2023)
+   call pbuf_get_field(pbuf, wsedl_idx,       wsedl,       col_type=col_type) 
    call pbuf_get_field(pbuf, qme_idx,         qme,         col_type=col_type)
 
    call pbuf_get_field(pbuf, cldo_idx,        cldo,     start=(/1,1,itim_old/), kount=(/psetcols,pver,1/), col_type=col_type)
@@ -2290,6 +2319,16 @@ subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf)
       ! Sum all outputs for averaging.
       call post_proc%accumulate()
 
+     ! ADDED AHK (09/Feb/2023)
+     prco_out(:,:)  = prco(:,:)
+     prao_out(:,:)  = prao(:,:)
+
+     mic_it = (macmic_it-1)*num_steps + it
+     write(char_mic_it,'(i2.2)') mic_it
+
+     call cnd_diag_checkpoint(diag, 'MG'//char_mic_it, state_loc, pbuf, cam_in, cam_out)
+ 
+
    end do
    call t_stopf('micro_mg_cam_tend_loop')
 
@@ -2662,7 +2701,7 @@ subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf)
    rel_fn_grid = 10._r8
 
    ncic_grid = 1.e8_r8
-
+   
    call size_dist_param_liq(mg_liq_props, icwmrst_grid(:ngrdcol,top_lev:), &
         ncic_grid(:ngrdcol,top_lev:), rho_grid(:ngrdcol,top_lev:), &
         mu_grid(:ngrdcol,top_lev:), lambdac_grid(:ngrdcol,top_lev:))

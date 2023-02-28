@@ -153,7 +153,12 @@ end subroutine microp_driver_init
 
 !===============================================================================
 
-subroutine microp_driver_tend(state, ptend, dtime, pbuf)
+subroutine microp_driver_tend(state, ptend, dtime, pbuf, diag, cam_in, cam_out, macmic_it)
+
+   ! ADDED AHK (09/Feb/2023)
+   use conditional_diag,      only: cnd_diag_t         
+   use conditional_diag_main, only: cnd_diag_checkpoint
+   use camsrfexch,            only: cam_in_t, cam_out_t
 
    ! Call the microphysics parameterization run methods.
 
@@ -164,6 +169,13 @@ subroutine microp_driver_tend(state, ptend, dtime, pbuf)
    type(physics_buffer_desc), pointer :: pbuf(:)
 
    real(r8), intent(in)  :: dtime                    ! Timestep
+
+
+   ! ADDED AHK (09/Feb/2023)
+   type(cnd_diag_t), optional,  intent(inout) :: diag       !conditionally sampled fields
+   type(cam_in_t),   optional,  intent(in)    :: cam_in
+   type(cam_out_t),  optional,  intent(in)    :: cam_out
+   integer, optional, intent(in) :: macmic_it
 
    ! Local variables
 
@@ -180,7 +192,8 @@ subroutine microp_driver_tend(state, ptend, dtime, pbuf)
    select case (microp_scheme)
    case ('MG')
       call t_startf('microp_mg_cam_tend')
-      call micro_mg_cam_tend(state, ptend, dtime, pbuf)
+      call micro_mg_cam_tend(state, ptend, dtime, pbuf, diag, cam_in, cam_out, macmic_it)! ADDED AHK (09/Feb/2023)
+      !call micro_mg_cam_tend(state, ptend, dtime, pbuf)
       call t_stopf('microp_mg_cam_tend')
    case ('RK')
       ! microp_driver doesn't handle this one
