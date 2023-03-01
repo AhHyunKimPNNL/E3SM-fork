@@ -2157,6 +2157,12 @@ Number of substeps over MG microphysics.
 Default: 1
 </entry>
 
+<entry id="micro_do_dlf_in_mg" type="logical" category="microphys"
+       group="micro_mg_nl" valid_values="" >
+Detrained liquid water is applied before calculating MG
+Default: .false.
+</entry>
+
 <entry id="micro_mg_precip_frac_method" type="char*16" category="microphys"
        group="micro_mg_nl" valid_values="max_overlap,in_cloud,mass_gradient" >
 Type of precipitation fraction.

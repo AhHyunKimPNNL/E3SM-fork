@@ -153,12 +153,14 @@ end subroutine microp_driver_init
 
 !===============================================================================
 
-subroutine microp_driver_tend(state, ptend, dtime, pbuf, diag, cam_in, cam_out, macmic_it)
+subroutine microp_driver_tend(state, ptend, dtime, pbuf, diag, cam_in, cam_out, macmic_it, dlf)
 
    ! ADDED AHK (09/Feb/2023)
    use conditional_diag,      only: cnd_diag_t         
    use conditional_diag_main, only: cnd_diag_checkpoint
    use camsrfexch,            only: cam_in_t, cam_out_t
+
+   use ppgrid,           only: pcols, pver
 
    ! Call the microphysics parameterization run methods.
 
@@ -176,6 +178,7 @@ subroutine microp_driver_tend(state, ptend, dtime, pbuf, diag, cam_in, cam_out, 
    type(cam_in_t),   optional,  intent(in)    :: cam_in
    type(cam_out_t),  optional,  intent(in)    :: cam_out
    integer, optional, intent(in) :: macmic_it
+   real(r8), intent(in) :: dlf(pcols,pver)                  ! Detraining cld H20 from shallow + deep convections
 
    ! Local variables
 
@@ -192,7 +195,7 @@ subroutine microp_driver_tend(state, ptend, dtime, pbuf, diag, cam_in, cam_out, 
    select case (microp_scheme)
    case ('MG')
       call t_startf('microp_mg_cam_tend')
-      call micro_mg_cam_tend(state, ptend, dtime, pbuf, diag, cam_in, cam_out, macmic_it)! ADDED AHK (09/Feb/2023)
+      call micro_mg_cam_tend(state, ptend, dtime, pbuf, diag, cam_in, cam_out, macmic_it,dlf)! ADDED AHK (09/Feb/2023)
       !call micro_mg_cam_tend(state, ptend, dtime, pbuf)
       call t_stopf('microp_mg_cam_tend')
    case ('RK')
