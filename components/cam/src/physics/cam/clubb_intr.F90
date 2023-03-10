@@ -731,6 +731,8 @@ end subroutine clubb_init_cnst
     call addfld ('THLP2_CLUBB',      (/ 'ilev' /), 'A',      'K^2', 'Temperature Variance')
     call addfld ('RTPTHLP_CLUBB',   (/ 'ilev' /), 'A',    'K g/kg', 'Temp. Moist. Covariance')
     call addfld ('RCM_CLUBB',     (/ 'ilev' /), 'A',        'g/kg', 'Cloud Water Mixing Ratio')
+    call addfld ('STD_CHI1_CLUBB',  (/ 'ilev' /), 'A',      'g/kg', 'Standard dev. of chi 1') ! ADDED AHK (10/Mar/2023)
+    call addfld ('STD_CHI2_CLUBB',  (/ 'ilev' /), 'A',      'g/kg', 'Standard dev. of chi 2') ! ADDED AHK (10/Mar/2023)
     call addfld ('WPRCP_CLUBB',     (/ 'ilev' /), 'A',      'W/m2', 'Liquid Water Flux')
     call addfld ('CLOUDFRAC_CLUBB', (/ 'lev' /),  'A',  'fraction', 'Cloud Fraction')
     call addfld ('AST_CLUBB', (/ 'lev' /),  'A',  'fraction', 'Cloud Fraction')
@@ -810,6 +812,8 @@ end subroutine clubb_init_cnst
        call add_default('UPWP_CLUBB',       1, ' ')
        call add_default('VPWP_CLUBB',       1, ' ')
        call add_default('RCM_CLUBB',        1, ' ')
+       call add_default('STD_CHI1_CLUBB',   1, ' ') ! ADDED AHK (10/Mar/2023)
+       call add_default('STD_CHI2_CLUBB',   1, ' ') ! ADDED AHK (10/Mar/2023)
        call add_default('WPRCP_CLUBB',      1, ' ')
        call add_default('CLOUDFRAC_CLUBB',  1, ' ')
        call add_default('AST_CLUBB',  1, ' ')
@@ -1130,6 +1134,8 @@ end subroutine clubb_init_cnst
    real(r8) :: thv(pcols,pver)                  ! virtual potential temperature                 [K]
    real(r8) :: edsclr_out(pverp,edsclr_dim)     ! Scalars to be diffused through CLUBB          [units vary]
    real(r8) :: rcm(pcols,pverp)                 ! CLUBB cloud water mixing ratio                [kg/kg]
+   real(r8) :: std_chi1(pcols,pverp)            ! Standard deviation of extended liquid water   [?] ADDED AHK (10/Mar/2023)
+   real(r8) :: std_chi2(pcols,pverp)            ! Standard deviation of extended liquid water   [?] ADDED AHK (10/Mar/2023)
    real(r8) :: cloud_frac(pcols,pverp)          ! CLUBB cloud fraction                          [fraction]
    real(r8) :: rcm_in_layer(pcols,pverp)        ! CLUBB in-cloud liquid water mixing ratio      [kg/kg]
    real(r8) :: cloud_cover(pcols,pverp)         ! CLUBB in-cloud cloud fraction                 [fraction]
@@ -1910,7 +1916,6 @@ end subroutine clubb_init_cnst
             khzm_out, khzt_out, qclvar_out, thlprcp_out, &
             pdf_params)
          call t_stopf('advance_clubb_core')
-
          if (do_rainturb) then
             rvm_in = rtm_in - rcm_out 
             call update_xp2_mc(pverp, dtime, cloud_frac_out, &
@@ -2004,7 +2009,9 @@ end subroutine clubb_init_cnst
           khzm(i,k)         = khzm_out(pverp-k+1)
           khzt(i,k)         = khzt_out(pverp-k+1)
           qclvar(i,k)       = min(1._r8,qclvar_out(pverp-k+1))
-     
+          
+          std_chi1(i,k)     = pdf_params(pverp-k+1)%stdev_chi_1 ! ADDED AHK (10/Mar/2023)
+          std_chi2(i,k)     = pdf_params(pverp-k+1)%stdev_chi_1
           do ixind=1,edsclr_dim
               edsclr_out(k,ixind) = edsclr_in(pverp-k+1,ixind)
           enddo
@@ -2512,6 +2519,8 @@ end subroutine clubb_init_cnst
    call outfld( 'RTPTHLP_CLUBB',    tmp_array,               ncol,  lchnk )
    tmp_array = rcm(:ncol,:)*1000._r8
    call outfld( 'RCM_CLUBB',        tmp_array,               ncol,  lchnk )
+   call outfld( 'STD_CHI1_CLUBB',   std_chi1,                ncol,  lchnk ) ! ADDED AHK (10/Mar/2023)
+   call outfld( 'STD_CHI2_CLUBB',   std_chi2,                ncol,  lchnk ) ! ADDED AHK (10/Mar/2023)
    tmp_array = wprcp(:ncol,:)*latvap
    call outfld( 'WPRCP_CLUBB',      tmp_array,               ncol,  lchnk )
    call outfld( 'CLOUDFRAC_CLUBB',  alst,                    pcols, lchnk )
