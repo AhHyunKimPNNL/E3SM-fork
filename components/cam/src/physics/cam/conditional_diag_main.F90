@@ -543,6 +543,34 @@ subroutine get_values( arrayout, varname, state, pbuf, cam_in, cam_out )
             idx = pbuf_get_index('WPRTP_cnd')  ; call pbuf_get_field( pbuf, idx, ptr2d)
             arrayout(:,:) = ptr2d
 
+        case('CHI1')
+            idx = pbuf_get_index('CHI1_cnd')  ; call pbuf_get_field( pbuf, idx, ptr2d)
+            arrayout(:,:) = ptr2d
+
+        case('CHI2')
+            idx = pbuf_get_index('CHI2_cnd')  ; call pbuf_get_field( pbuf, idx, ptr2d)
+            arrayout(:,:) = ptr2d
+
+        case('STD_CHI1')
+            idx = pbuf_get_index('STD_CHI1_cnd')  ; call pbuf_get_field( pbuf, idx, ptr2d)
+            arrayout(:,:) = ptr2d
+
+        case('STD_CHI2')
+            idx = pbuf_get_index('STD_CHI2_cnd')  ; call pbuf_get_field( pbuf, idx, ptr2d)
+            arrayout(:,:) = ptr2d
+
+        case('RC1')
+            idx = pbuf_get_index('RC1_cnd')  ; call pbuf_get_field( pbuf, idx, ptr2d)
+            arrayout(:,:) = ptr2d
+
+        case('RC2')
+            idx = pbuf_get_index('RC2_cnd')  ; call pbuf_get_field( pbuf, idx, ptr2d)
+            arrayout(:,:) = ptr2d
+
+        case('MIXF')
+            idx = pbuf_get_index('MIXF_cnd')  ; call pbuf_get_field( pbuf, idx, ptr2d)
+            arrayout(:,:) = ptr2d
+
         case('WPTHVP')
             idx = pbuf_get_index('WPTHVP_nadv')  ; call pbuf_get_field( pbuf,idx, ptr2d)
             arrayout(:,:) = ptr2d

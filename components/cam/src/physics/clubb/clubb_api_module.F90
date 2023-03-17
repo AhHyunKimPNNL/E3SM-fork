@@ -653,7 +653,7 @@ contains
                RH_crit, & !h1g, 2010-06-16                             ! intent(inout)
                do_liquid_only_in_clubb, &                              ! intent(in)
 #endif
-      rcm, wprcp, cloud_frac, ice_supersat_frac, &            ! intent(out)
+      rcm, wprcp, cloud_frac, ice_supersat_frac, &            ! intent(out) ADDED AHK (14/Mar/2023)
       rcm_in_layer, cloud_cover, &                            ! intent(out)
 #if defined(CLUBB_CAM) || defined(GFDL)
                khzm, khzt, thlprcp_out, &                                           ! intent(out)

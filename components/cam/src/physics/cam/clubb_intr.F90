@@ -141,6 +141,13 @@ module clubb_intr
     wpthlp_idx, &       ! turbulent flux of thetal
     wprtp_idx, &        ! turbulent flux of total water
     wprtp_cnd_idx, &    ! turbulent flux of total water for condidiag
+    chi1_cnd_idx, &     ! extended liquid water mixing ratio for condidiag ADDED AHK (15/Mar/2023)
+    chi2_cnd_idx, &     ! extended liquid water mixing ratio for condidiag ADDED AHK (15/Mar/2023)
+    std_chi1_cnd_idx, &     ! standard deviation for extended liquid water mixing ratio for condidiag ADDED AHK (15/Mar/2023)
+    std_chi2_cnd_idx, &     ! standard deviation for extended liquid water mixing ratio for condidiag ADDED AHK (15/Mar/2023)
+    rc1_cnd_idx, &      ! liquid water in PDF1 for condidiag ADDED AHK (15/Mar/2023)
+    rc2_cnd_idx, &      ! liquid water in PDF2 for condidiag ADDED AHK (15/Mar/2023)
+    mixf_cnd_idx, &     ! extended liquid water mixing ratio for condidiag ADDED AHK (15/Mar/2023)
     rtpthlp_idx, &      ! covariance of thetal and rt
     rtp2_idx, &         ! variance of total water
     thlp2_idx, &        ! variance of thetal
@@ -275,6 +282,13 @@ module clubb_intr
     call pbuf_add_field('WPTHLP_nadv',     'global', dtype_r8, (/pcols,pverp,dyn_time_lvls/), wpthlp_idx)
     call pbuf_add_field('WPRTP_nadv',      'global', dtype_r8, (/pcols,pverp,dyn_time_lvls/), wprtp_idx)
     call pbuf_add_field('WPRTP_cnd',      'physpkg', dtype_r8, (/pcols,pverp/),  wprtp_cnd_idx) ! ADDED AHK (24/Feb/2023)
+    call pbuf_add_field('CHI1_cnd',       'physpkg', dtype_r8, (/pcols,pverp/),  chi1_cnd_idx) ! ADDED AHK (24/Feb/2023)
+    call pbuf_add_field('CHI2_cnd',       'physpkg', dtype_r8, (/pcols,pverp/),  chi2_cnd_idx) ! ADDED AHK (24/Feb/2023)
+    call pbuf_add_field('STD_CHI1_cnd',  'physpkg', dtype_r8, (/pcols,pverp/),  std_chi1_cnd_idx) ! ADDED AHK (24/Feb/2023)
+    call pbuf_add_field('STD_CHI2_cnd',  'physpkg', dtype_r8, (/pcols,pverp/),  std_chi2_cnd_idx) ! ADDED AHK (24/Feb/2023)
+    call pbuf_add_field('RC1_cnd',       'physpkg', dtype_r8, (/pcols,pverp/),  rc1_cnd_idx) ! ADDED AHK (24/Feb/2023)
+    call pbuf_add_field('RC2_cnd',       'physpkg', dtype_r8, (/pcols,pverp/),  rc2_cnd_idx) ! ADDED AHK (24/Feb/2023)
+    call pbuf_add_field('MIXF_cnd',       'physpkg', dtype_r8, (/pcols,pverp/),  mixf_cnd_idx) ! ADDED AHK (24/Feb/2023)
     call pbuf_add_field('RTPTHLP_nadv',    'global', dtype_r8, (/pcols,pverp,dyn_time_lvls/), rtpthlp_idx)
     call pbuf_add_field('RTP2_nadv',       'global', dtype_r8, (/pcols,pverp,dyn_time_lvls/), rtp2_idx)
     call pbuf_add_field('THLP2_nadv',      'global', dtype_r8, (/pcols,pverp,dyn_time_lvls/), thlp2_idx)
@@ -733,6 +747,22 @@ end subroutine clubb_init_cnst
     call addfld ('RCM_CLUBB',     (/ 'ilev' /), 'A',        'g/kg', 'Cloud Water Mixing Ratio')
     call addfld ('STD_CHI1_CLUBB',  (/ 'ilev' /), 'A',      'g/kg', 'Standard dev. of chi 1') ! ADDED AHK (10/Mar/2023)
     call addfld ('STD_CHI2_CLUBB',  (/ 'ilev' /), 'A',      'g/kg', 'Standard dev. of chi 2') ! ADDED AHK (10/Mar/2023)
+    call addfld ('CHI1_CLUBB',      (/ 'ilev' /), 'A',      'g/kg', 'chi 1') ! ADDED AHK (10/Mar/2023)
+    call addfld ('CHI2_CLUBB',      (/ 'ilev' /), 'A',      'g/kg', 'chi 2') ! ADDED AHK (10/Mar/2023)
+    call addfld ('MIXF_CLUBB',      (/ 'ilev' /), 'A',      'g/kg', 'Weight of 1st PDF component') ! ADDED AHK (10/Mar/2023)
+    call addfld ('CF1_CLUBB',       (/ 'ilev' /), 'A',      'g/kg', 'Cloud fraction PDF1') ! ADDED AHK (10/Mar/2023)
+    call addfld ('CF2_CLUBB',       (/ 'ilev' /), 'A',      'g/kg', 'Cloud fraction PDF2') ! ADDED AHK (10/Mar/2023)
+    call addfld ('RC1_CLUBB',       (/ 'ilev' /), 'A',      'g/kg', 'Cloud water PDF1') ! ADDED AHK (10/Mar/2023)
+    call addfld ('RC2_CLUBB',       (/ 'ilev' /), 'A',      'g/kg', 'Cloud water PDF2') ! ADDED AHK (10/Mar/2023)
+    call addfld ('CRT1_CLUBB',      (/ 'ilev' /), 'A',         '-', 'Coef. on total water PDF1') ! ADDED AHK (10/Mar/2023)
+    call addfld ('CRT2_CLUBB',      (/ 'ilev' /), 'A',         '-', 'Coef. on total water PDF2') ! ADDED AHK (10/Mar/2023)
+    call addfld ('CTHL1_CLUBB',     (/ 'ilev' /), 'A',         '-', 'Coef. on liquid water potential temperature PDF1') ! ADDED AHK (10/Mar/2023)
+    call addfld ('CTHL2_CLUBB',     (/ 'ilev' /), 'A',         '-', 'Coef. on liquid water potential temperature PDF2') ! ADDED AHK (10/Mar/2023)
+    call addfld ('VRT1_CLUBB',      (/ 'ilev' /), 'A',         '-', 'Var. on total water PDF1') ! ADDED AHK (10/Mar/2023)
+    call addfld ('VRT2_CLUBB',      (/ 'ilev' /), 'A',         '-', 'Var. on total water PDF2') ! ADDED AHK (10/Mar/2023)
+    call addfld ('VTHL1_CLUBB',     (/ 'ilev' /), 'A',         '-', 'Var. on liquid water potential temperature PDF1') ! ADDED AHK (10/Mar/2023)
+    call addfld ('VTHL2_CLUBB',     (/ 'ilev' /), 'A',         '-', 'Var. on liquid water potential temperature PDF2') ! ADDED AHK (10/Mar/2023)
+    call addfld ('RRTTHL_CLUBB',    (/ 'ilev' /), 'A',         '-', 'Var. on liquid water potential temperature and total water PDF2') ! ADDED AHK (10/Mar/2023)
     call addfld ('WPRCP_CLUBB',     (/ 'ilev' /), 'A',      'W/m2', 'Liquid Water Flux')
     call addfld ('CLOUDFRAC_CLUBB', (/ 'lev' /),  'A',  'fraction', 'Cloud Fraction')
     call addfld ('AST_CLUBB', (/ 'lev' /),  'A',  'fraction', 'Cloud Fraction')
@@ -814,6 +844,22 @@ end subroutine clubb_init_cnst
        call add_default('RCM_CLUBB',        1, ' ')
        call add_default('STD_CHI1_CLUBB',   1, ' ') ! ADDED AHK (10/Mar/2023)
        call add_default('STD_CHI2_CLUBB',   1, ' ') ! ADDED AHK (10/Mar/2023)
+       call add_default('CHI1_CLUBB',       1, ' ') ! ADDED AHK (10/Mar/2023)
+       call add_default('CHI2_CLUBB',       1, ' ') ! ADDED AHK (10/Mar/2023)
+       call add_default('MIXF_CLUBB',       1, ' ') ! ADDED AHK (10/Mar/2023)
+       call add_default('CF1_CLUBB',        1, ' ') ! ADDED AHK (10/Mar/2023)
+       call add_default('CF2_CLUBB',        1, ' ') ! ADDED AHK (10/Mar/2023)
+       call add_default('RC1_CLUBB',        1, ' ') ! ADDED AHK (10/Mar/2023)
+       call add_default('RC2_CLUBB',        1, ' ') ! ADDED AHK (10/Mar/2023)
+       call add_default('CRT1_CLUBB',       1, ' ') ! ADDED AHK (10/Mar/2023)
+       call add_default('CRT2_CLUBB',       1, ' ') ! ADDED AHK (10/Mar/2023)
+       call add_default('CTHL1_CLUBB',      1, ' ') ! ADDED AHK (10/Mar/2023)
+       call add_default('CTHL2_CLUBB',      1, ' ') ! ADDED AHK (10/Mar/2023)
+       call add_default('VRT1_CLUBB',       1, ' ') ! ADDED AHK (10/Mar/2023)
+       call add_default('VRT2_CLUBB',       1, ' ') ! ADDED AHK (10/Mar/2023)
+       call add_default('VTHL1_CLUBB',      1, ' ') ! ADDED AHK (10/Mar/2023)
+       call add_default('VTHL2_CLUBB',      1, ' ') ! ADDED AHK (10/Mar/2023)
+       call add_default('RRTTHL_CLUBB',     1, ' ') ! ADDED AHK (10/Mar/2023)
        call add_default('WPRCP_CLUBB',      1, ' ')
        call add_default('CLOUDFRAC_CLUBB',  1, ' ')
        call add_default('AST_CLUBB',  1, ' ')
@@ -870,6 +916,13 @@ end subroutine clubb_init_cnst
        call pbuf_set_field(pbuf2d, wpthlp_idx,  0.0_r8)
        call pbuf_set_field(pbuf2d, wprtp_idx,   0.0_r8)
        call pbuf_set_field(pbuf2d, wprtp_cnd_idx,0.0_r8) ! ADDED AHK (24/Feb/2023)
+       call pbuf_set_field(pbuf2d, chi1_cnd_idx,0.0_r8) ! ADDED AHK (24/Feb/2023)
+       call pbuf_set_field(pbuf2d, chi2_cnd_idx,0.0_r8) ! ADDED AHK (24/Feb/2023)
+       call pbuf_set_field(pbuf2d, std_chi1_cnd_idx,0.0_r8) ! ADDED AHK (24/Feb/2023)
+       call pbuf_set_field(pbuf2d, std_chi2_cnd_idx,0.0_r8) ! ADDED AHK (24/Feb/2023)
+       call pbuf_set_field(pbuf2d, rc1_cnd_idx,0.0_r8) ! ADDED AHK (24/Feb/2023)
+       call pbuf_set_field(pbuf2d, rc2_cnd_idx,0.0_r8) ! ADDED AHK (24/Feb/2023)
+       call pbuf_set_field(pbuf2d, mixf_cnd_idx,0.0_r8) ! ADDED AHK (24/Feb/2023)
        call pbuf_set_field(pbuf2d, rtpthlp_idx, 0.0_r8)
        call pbuf_set_field(pbuf2d, rtp2_idx,    rt_tol**2)
        call pbuf_set_field(pbuf2d, thlp2_idx,   thl_tol**2)
@@ -1134,8 +1187,25 @@ end subroutine clubb_init_cnst
    real(r8) :: thv(pcols,pver)                  ! virtual potential temperature                 [K]
    real(r8) :: edsclr_out(pverp,edsclr_dim)     ! Scalars to be diffused through CLUBB          [units vary]
    real(r8) :: rcm(pcols,pverp)                 ! CLUBB cloud water mixing ratio                [kg/kg]
-   real(r8) :: std_chi1(pcols,pverp)            ! Standard deviation of extended liquid water   [?] ADDED AHK (10/Mar/2023)
-   real(r8) :: std_chi2(pcols,pverp)            ! Standard deviation of extended liquid water   [?] ADDED AHK (10/Mar/2023)
+   real(r8) :: rcm_zm(pcols,pverp)              ! CLUBB cloud water mixing ratio in mom. lev.   [kg/kg] ADDED AHK (10/Mar/2023)
+   real(r8), pointer, dimension(:,:) :: std_chi1! Standard deviation of extended liquid water   [?] ADDED AHK (10/Mar/2023)
+   real(r8), pointer, dimension(:,:) :: std_chi2! Standard deviation of extended liquid water   [?] ADDED AHK (10/Mar/2023)
+   real(r8), pointer, dimension(:,:) :: chi1    ! extended liquid water PDF1  [?] ADDED AHK (10/Mar/2023)
+   real(r8), pointer, dimension(:,:) :: chi2    ! extended liquid water PDF2 [?] ADDED AHK (10/Mar/2023)
+   real(r8), pointer, dimension(:,:) :: mixf      ! Weight of 1st PDF component [?] ADDED AHK (10/Mar/2023)
+   real(r8) :: cf1(pcols,pverp)                 ! cloud fraction PDF1   [?] ADDED AHK (10/Mar/2023)
+   real(r8) :: cf2(pcols,pverp)                 ! cloud fraction PDF2   [?] ADDED AHK (10/Mar/2023)
+   real(r8), pointer, dimension(:,:) :: rc1     ! cloud water PDF1   [?] ADDED AHK (10/Mar/2023)
+   real(r8), pointer, dimension(:,:) :: rc2     ! cloud water PDF2   [?] ADDED AHK (10/Mar/2023)
+   real(r8) :: crt1(pcols,pverp)                ! Coef. on total water in s/t eqns. (1st PDF comp.) 
+   real(r8) :: crt2(pcols,pverp)                ! Coef. on total water in s/t eqns. (2st PDF comp.) 
+   real(r8) :: cthl1(pcols,pverp)               ! Coef. on liquid water potential temperature PDF1   [?] ADDED AHK (10/Mar/2023)
+   real(r8) :: cthl2(pcols,pverp)               ! Coef. on liquid water potential temperature PDF2   [?] ADDED AHK (10/Mar/2023)
+   real(r8) :: vrt1(pcols,pverp)                ! Variance on total water PDF1   [?] ADDED AHK (10/Mar/2023)
+   real(r8) :: vrt2(pcols,pverp)                ! Variance on total water PDF2   [?] ADDED AHK (10/Mar/2023)
+   real(r8) :: vthl1(pcols,pverp)               ! Variance on liquid water potential temperature  PDF1   [?] ADDED AHK (10/Mar/2023)
+   real(r8) :: vthl2(pcols,pverp)               ! Variance on liquid water potential temperature  PDF2   [?] ADDED AHK (10/Mar/2023)
+   real(r8) :: rrtthl(pcols,pverp)              ! Correlation of r_t and th_l (both components)  [?] ADDED AHK (10/Mar/2023)
    real(r8) :: cloud_frac(pcols,pverp)          ! CLUBB cloud fraction                          [fraction]
    real(r8) :: rcm_in_layer(pcols,pverp)        ! CLUBB in-cloud liquid water mixing ratio      [kg/kg]
    real(r8) :: cloud_cover(pcols,pverp)         ! CLUBB in-cloud cloud fraction                 [fraction]
@@ -1309,6 +1379,13 @@ end subroutine clubb_init_cnst
    call pbuf_get_field(pbuf, wpthlp_idx,  wpthlp,  start=(/1,1,itim_old/), kount=(/pcols,pverp,1/))
    call pbuf_get_field(pbuf, wprtp_idx,   wprtp,   start=(/1,1,itim_old/), kount=(/pcols,pverp,1/))
    call pbuf_get_field(pbuf, wprtp_cnd_idx, wprtp_out) ! ADDED AHK (24/Feb/2023)
+   call pbuf_get_field(pbuf, chi1_cnd_idx, chi1) ! ADDED AHK (24/Feb/2023)
+   call pbuf_get_field(pbuf, chi2_cnd_idx, chi2) ! ADDED AHK (24/Feb/2023)
+   call pbuf_get_field(pbuf, std_chi1_cnd_idx, std_chi1) ! ADDED AHK (24/Feb/2023)
+   call pbuf_get_field(pbuf, std_chi2_cnd_idx, std_chi2) ! ADDED AHK (24/Feb/2023)
+   call pbuf_get_field(pbuf, rc1_cnd_idx, rc1) ! ADDED AHK (24/Feb/2023)
+   call pbuf_get_field(pbuf, rc2_cnd_idx, rc2) ! ADDED AHK (24/Feb/2023)
+   call pbuf_get_field(pbuf, mixf_cnd_idx, mixf) ! ADDED AHK (24/Feb/2023)
    call pbuf_get_field(pbuf, rtpthlp_idx, rtpthlp, start=(/1,1,itim_old/), kount=(/pcols,pverp,1/))
    call pbuf_get_field(pbuf, rtp2_idx,    rtp2,    start=(/1,1,itim_old/), kount=(/pcols,pverp,1/))
    call pbuf_get_field(pbuf, thlp2_idx,   thlp2,   start=(/1,1,itim_old/), kount=(/pcols,pverp,1/))
@@ -1774,6 +1851,7 @@ end subroutine clubb_init_cnst
 
          !  Initialize these to prevent crashing behavior
          rcm_out(k)          = 0._r8
+         rcm_out_zm(k)       = 0._r8 ! ADDED AHK (14/Mar/2023)
          wprcp_out(k)        = 0._r8
          cloud_frac_out(k)   = 0._r8
          rcm_in_layer_out(k) = 0._r8
@@ -1940,6 +2018,7 @@ end subroutine clubb_init_cnst
 !                     rtpthlp_in = rtpthlp_in + rtpthlp_mc_out * dtime
          endif     
 
+         rcm_out_zm = zt2zm(rcm_out) ! ADDED AHK (10/Mar/2023)
          if (do_cldcool) then
          
             rcm_out_zm = zt2zm(rcm_out)
@@ -2011,7 +2090,23 @@ end subroutine clubb_init_cnst
           qclvar(i,k)       = min(1._r8,qclvar_out(pverp-k+1))
           
           std_chi1(i,k)     = pdf_params(pverp-k+1)%stdev_chi_1 ! ADDED AHK (10/Mar/2023)
-          std_chi2(i,k)     = pdf_params(pverp-k+1)%stdev_chi_1
+          std_chi2(i,k)     = pdf_params(pverp-k+1)%stdev_chi_2
+          chi1(i,k)         = pdf_params(pverp-k+1)%chi_1 ! ADDED AHK (10/Mar/2023)
+          chi2(i,k)         = pdf_params(pverp-k+1)%chi_2 ! ADDED AHK (10/Mar/2023)
+          mixf(i,k)         = pdf_params(pverp-k+1)%mixt_frac ! ADDED AHK (10/Mar/2023)
+          cf1(i,k)          = pdf_params(pverp-k+1)%cloud_frac_1 ! ADDED AHK (10/Mar/2023)
+          cf2(i,k)          = pdf_params(pverp-k+1)%cloud_frac_2 ! ADDED AHK (10/Mar/2023)
+          rc1(i,k)          = pdf_params(pverp-k+1)%rc_1 ! ADDED AHK (10/Mar/2023)
+          rc2(i,k)          = pdf_params(pverp-k+1)%rc_2 ! ADDED AHK (10/Mar/2023)
+          crt1(i,k)         = pdf_params(pverp-k+1)%crt_1 ! ADDED AHK (10/Mar/2023)
+          crt2(i,k)         = pdf_params(pverp-k+1)%crt_2 ! ADDED AHK (10/Mar/2023)
+          cthl1(i,k)        = pdf_params(pverp-k+1)%cthl_1 ! ADDED AHK (10/Mar/2023)
+          cthl2(i,k)        = pdf_params(pverp-k+1)%cthl_2 ! ADDED AHK (10/Mar/2023)
+          vrt1(i,k)         = pdf_params(pverp-k+1)%varnce_rt_1 ! ADDED AHK (10/Mar/2023)
+          vrt2(i,k)         = pdf_params(pverp-k+1)%varnce_rt_2 ! ADDED AHK (10/Mar/2023)
+          vthl1(i,k)        = pdf_params(pverp-k+1)%varnce_thl_1 ! ADDED AHK (10/Mar/2023)
+          vthl2(i,k)        = pdf_params(pverp-k+1)%varnce_thl_2 ! ADDED AHK (10/Mar/2023)
+          rrtthl(i,k)       = pdf_params(pverp-k+1)%rrtthl ! ADDED AHK (10/Mar/2023)
           do ixind=1,edsclr_dim
               edsclr_out(k,ixind) = edsclr_in(pverp-k+1,ixind)
           enddo
@@ -2519,8 +2614,24 @@ end subroutine clubb_init_cnst
    call outfld( 'RTPTHLP_CLUBB',    tmp_array,               ncol,  lchnk )
    tmp_array = rcm(:ncol,:)*1000._r8
    call outfld( 'RCM_CLUBB',        tmp_array,               ncol,  lchnk )
-   call outfld( 'STD_CHI1_CLUBB',   std_chi1,                ncol,  lchnk ) ! ADDED AHK (10/Mar/2023)
-   call outfld( 'STD_CHI2_CLUBB',   std_chi2,                ncol,  lchnk ) ! ADDED AHK (10/Mar/2023)
+   call outfld( 'STD_CHI1_CLUBB',   std_chi1(:ncol,:),       ncol,  lchnk ) ! ADDED AHK (10/Mar/2023)
+   call outfld( 'STD_CHI2_CLUBB',   std_chi2(:ncol,:),       ncol,  lchnk ) ! ADDED AHK (10/Mar/2023)
+   call outfld( 'CHI1_CLUBB',       chi1(:ncol,:),           ncol,  lchnk ) ! ADDED AHK (10/Mar/2023)
+   call outfld( 'CHI2_CLUBB',       chi2(:ncol,:),           ncol,  lchnk ) ! ADDED AHK (10/Mar/2023)
+   call outfld( 'MIXF_CLUBB',       mixf(:ncol,:),           ncol,  lchnk ) ! ADDED AHK (10/Mar/2023)
+   call outfld( 'CF1_CLUBB',        cf1(:ncol,:),            ncol,  lchnk ) ! ADDED AHK (10/Mar/2023)
+   call outfld( 'CF2_CLUBB',        cf2(:ncol,:),            ncol,  lchnk ) ! ADDED AHK (10/Mar/2023)
+   call outfld( 'RC1_CLUBB',        rc1(:ncol,:),            ncol,  lchnk ) ! ADDED AHK (10/Mar/2023)
+   call outfld( 'RC2_CLUBB',        rc2(:ncol,:),            ncol,  lchnk ) ! ADDED AHK (10/Mar/2023)
+   call outfld( 'CRT1_CLUBB',       crt1(:ncol,:),           ncol,  lchnk ) ! ADDED AHK (10/Mar/2023)
+   call outfld( 'CRT2_CLUBB',       crt2(:ncol,:),           ncol,  lchnk ) ! ADDED AHK (10/Mar/2023)
+   call outfld( 'CTHL1_CLUBB',      cthl1(:ncol,:),          ncol,  lchnk ) ! ADDED AHK (10/Mar/2023)
+   call outfld( 'CTHL2_CLUBB',      cthl2(:ncol,:),          ncol,  lchnk ) ! ADDED AHK (10/Mar/2023)
+   call outfld( 'VRT1_CLUBB',       vrt1(:ncol,:),           ncol,  lchnk ) ! ADDED AHK (10/Mar/2023)
+   call outfld( 'VRT2_CLUBB',       vrt2(:ncol,:),           ncol,  lchnk ) ! ADDED AHK (10/Mar/2023)
+   call outfld( 'VTHL1_CLUBB',      vthl1(:ncol,:),          ncol,  lchnk ) ! ADDED AHK (10/Mar/2023)
+   call outfld( 'VTHL2_CLUBB',      vthl2(:ncol,:),          ncol,  lchnk ) ! ADDED AHK (10/Mar/2023)
+   call outfld( 'RRTTHL_CLUBB',     rrtthl(:ncol,:),         ncol,  lchnk ) ! ADDED AHK (10/Mar/2023)
    tmp_array = wprcp(:ncol,:)*latvap
    call outfld( 'WPRCP_CLUBB',      tmp_array,               ncol,  lchnk )
    call outfld( 'CLOUDFRAC_CLUBB',  alst,                    pcols, lchnk )

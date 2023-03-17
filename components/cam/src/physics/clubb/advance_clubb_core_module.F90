@@ -1342,7 +1342,6 @@ module advance_clubb_core_module
              wpsclrprtp_zm, wpsclrp2_zm, wpsclrpthlp_zm,  & ! intent(inout)
              pdf_params_zm )                                ! intent(inout)
     end if ! l_trapezoidal_rule_zt
-
     ! If l_trapezoidal_rule_zm is true, call trapezoidal_rule_zm for
     ! the important momentum-level variabes output from pdf_closure.
     ! ldgrant Feb. 2010
@@ -1373,7 +1372,6 @@ module advance_clubb_core_module
       cloud_frac = cloud_cover
       rcm = rcm_in_layer
     end if
-
     ! Clip cloud fraction here if it still exceeds 1.0 due to round off
     cloud_frac = min( 1.0_core_rknd, cloud_frac )
     ! Ditto with ice cloud fraction
