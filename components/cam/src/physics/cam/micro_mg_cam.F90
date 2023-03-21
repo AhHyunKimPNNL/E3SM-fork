@@ -167,6 +167,8 @@ integer :: &
    rel_idx,            &
    prao_idx,           &  ! ADDED AHK (09/Feb/2023) 
    prco_idx,           &  ! ADDED AHK (09/Feb/2023)
+   pre_idx,            &  ! ADDED AHK (09/Feb/2023)
+   qrsed_idx,          &  ! ADDED AHK (09/Feb/2023)
    dei_idx,            &
    mu_idx,             &
    prer_evap_idx,            &
@@ -464,6 +466,8 @@ subroutine micro_mg_cam_register
 
   call pbuf_add_field('PRAO_out',   'physpkg',dtype_r8,(/pcols,pver/), prao_idx) ! ADDED AHK (09/Feb/2023) 
   call pbuf_add_field('PRCO_out',   'physpkg',dtype_r8,(/pcols,pver/), prco_idx) ! ADDED AHK (09/Feb/2023)
+  call pbuf_add_field('PRE_out',    'physpkg',dtype_r8,(/pcols,pver/), pre_idx) ! ADDED AHK (09/Feb/2023)
+  call pbuf_add_field('QRSED_out',  'physpkg',dtype_r8,(/pcols,pver/), qrsed_idx) ! ADDED AHK (09/Feb/2023)
 
   ! Mitchell ice effective diameter for radiation
   call pbuf_add_field('DEI',        'physpkg',dtype_r8,(/pcols,pver/), dei_idx)
@@ -543,6 +547,8 @@ subroutine micro_mg_cam_register
 
     call pbuf_register_subcol('PRAO_out',    'micro_mg_cam_register', prao_idx) ! ADDED AHK (09/Feb/2023)
     call pbuf_register_subcol('PRCO_out',    'micro_mg_cam_register', prco_idx) ! ADDED AHK (09/Feb/2023)
+    call pbuf_register_subcol('PRE_out',     'micro_mg_cam_register', pre_idx) ! ADDED AHK (09/Feb/2023)
+    call pbuf_register_subcol('QRSED_out',   'micro_mg_cam_register', qrsed_idx) ! ADDED AHK (09/Feb/2023)
 
 
     ! Mitchell ice effective diameter for radiation
@@ -1525,8 +1531,8 @@ subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf, diag, cam_in, cam_out, m
 
    real(r8), pointer :: prco_out(:,:) ! ADDED AHK (09/Feb/2023)
    real(r8), pointer :: prao_out(:,:) ! ADDED AHK (09/Feb/2023)
-   real(r8) :: prco_dummy(pcols,pver) ! ADDED AHK (09/Feb/2023)
-   real(r8) :: prao_dummy(pcols,pver) ! ADDED AHK (09/Feb/2023)
+   real(r8), pointer :: pre_out(:,:) ! ADDED AHK (09/Feb/2023)
+   real(r8), pointer :: qrsed_out(:,:) ! ADDED AHK (09/Feb/2023)
 
    real(r8) :: rho_grid(pcols,pver)
    real(r8) :: liqcldf_grid(pcols,pver)
@@ -1705,8 +1711,10 @@ subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf, diag, cam_in, cam_out, m
    call pbuf_get_field(pbuf, icswp_idx,       icswp,       col_type=col_type)
    call pbuf_get_field(pbuf, rel_idx,         rel,         col_type=col_type)
    call pbuf_get_field(pbuf, rei_idx,         rei,         col_type=col_type)
-   call pbuf_get_field(pbuf, prao_idx,        prao_out,    col_type=col_type) ! ADDED AHK (09/Feb/2023)
    call pbuf_get_field(pbuf, prco_idx,        prco_out,    col_type=col_type) ! ADDED AHK (09/Feb/2023)
+   call pbuf_get_field(pbuf, prao_idx,        prao_out,    col_type=col_type) ! ADDED AHK (09/Feb/2023)
+   call pbuf_get_field(pbuf, pre_idx,         pre_out,     col_type=col_type) ! ADDED AHK (09/Feb/2023)
+   call pbuf_get_field(pbuf, qrsed_idx,       qrsed_out,   col_type=col_type) ! ADDED AHK (09/Feb/2023)
    call pbuf_get_field(pbuf, wsedl_idx,       wsedl,       col_type=col_type) 
    call pbuf_get_field(pbuf, qme_idx,         qme,         col_type=col_type)
 
@@ -2146,7 +2154,6 @@ subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf, diag, cam_in, cam_out, m
    lqice(ixcldliq) = .true.
    lqice(ixnumliq) = .true.
    do it = 1, num_steps
-
       ! ADDED AHK (28/Feb/2023)
       ! move detrained liquid into the MG subcycle loop.
       ! note: clubb_tk1 and clubb_liq_deep are actually namelist variables, but
@@ -2368,8 +2375,10 @@ subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf, diag, cam_in, cam_out, m
       call post_proc%accumulate()
 
      ! ADDED AHK (09/Feb/2023)
-     prco_out(:,:)  = prco(:,:)
-     prao_out(:,:)  = prao(:,:)
+     prco_out(:,:)  = packer%unpack(packed_prc, 0._r8)
+     prao_out(:,:)  = packer%unpack(packed_pra, 0._r8)
+     pre_out(:,:)   = packer%unpack(packed_prer_evap, 0._r8)
+     qrsed_out(:,:) = packer%unpack(packed_qrsedten, 0._r8)
 
      mic_it = (macmic_it-1)*num_steps + it
      write(char_mic_it,'(i2.2)') mic_it

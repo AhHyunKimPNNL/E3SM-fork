@@ -583,6 +583,14 @@ subroutine get_values( arrayout, varname, state, pbuf, cam_in, cam_out )
             idx = pbuf_get_index('PRCO_out')  ; call pbuf_get_field(pbuf,idx,ptr2d)
             arrayout(:,:) = ptr2d
 
+        case('PRE')
+            idx = pbuf_get_index('PRE_out')  ; call pbuf_get_field(pbuf,idx,ptr2d)
+            arrayout(:,:) = ptr2d
+
+        case('QRSED')
+            idx = pbuf_get_index('QRSED_out')  ; call pbuf_get_field(pbuf,idx,ptr2d)
+            arrayout(:,:) = ptr2d
+
         case('RELVAR')
             idx = pbuf_get_index('RELVAR')  ; call pbuf_get_field(pbuf,idx, ptr2d)
             arrayout(:,:) = ptr2d
