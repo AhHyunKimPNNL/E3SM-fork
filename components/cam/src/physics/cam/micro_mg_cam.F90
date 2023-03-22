@@ -137,6 +137,7 @@ logical, public :: do_cldice ! Prognose cldice flag
 logical, public :: do_nccons ! Set NC to a constant
 logical, public :: do_nicons ! Set NI to a constant
 logical, public :: do_dlf_in_mg ! ADDED AHK (28/Feb/2023)
+logical, public :: dribble_cldliq ! ADDED AHK (21/Mar/2023)
 
 integer :: num_steps ! Number of MG substeps
 
@@ -282,6 +283,7 @@ subroutine micro_mg_cam_readnl(nlfile)
   logical :: micro_do_nccons    = .false.! micro_do_nccons = .true, MG does NOT predict numliq 
   logical :: micro_do_nicons    = .false.! micro_do_nicons = .true.,MG does NOT predict numice
   logical :: micro_do_dlf_in_mg = .false.
+  logical :: micro_dribble_cldliq = .false.
   integer :: micro_mg_num_steps = 1      ! Number of substepping iterations done by MG (1.5 only for now).
   real(r8) :: micro_nccons, micro_nicons
 
@@ -297,7 +299,7 @@ subroutine micro_mg_cam_readnl(nlfile)
        microp_uniform, micro_mg_dcs, micro_mg_precip_frac_method, &
        micro_mg_mass_gradient_alpha, micro_mg_mass_gradient_beta, &
        micro_mg_berg_eff_factor, micro_do_nccons, micro_do_nicons, &
-       micro_nccons, micro_nicons, micro_do_dlf_in_mg
+       micro_nccons, micro_nicons, micro_do_dlf_in_mg, micro_dribble_cldliq
 
   !-----------------------------------------------------------------------------
 
@@ -322,6 +324,7 @@ subroutine micro_mg_cam_readnl(nlfile)
      nccons = micro_nccons
      nicons = micro_nicons
      do_dlf_in_mg = micro_do_dlf_in_mg
+     dribble_cldliq = micro_dribble_cldliq
      
      num_steps = micro_mg_num_steps
      
@@ -385,6 +388,7 @@ subroutine micro_mg_cam_readnl(nlfile)
   call mpibcast(micro_mg_mass_gradient_alpha, 1, mpir8, 0, mpicom)
   call mpibcast(micro_mg_mass_gradient_beta, 1, mpir8,  0, mpicom)
   call mpibcast(do_dlf_in_mg,                1, mpilog, 0, mpicom) ! ADDED AHK (28/Feb/2023)
+  call mpibcast(dribble_cldliq,              1, mpilog, 0, mpicom) ! ADDED AHK (28/Feb/2023)
 
 #endif
 
@@ -1478,7 +1482,7 @@ subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf, diag, cam_in, cam_out, m
    real(r8) :: icimrst_grid_out(pcols,pver) ! In stratus ice mixing ratio
    real(r8) :: icwmrst_grid_out(pcols,pver) ! In stratus water mixing ratio
 
-   real(r8), intent(in) ::dlf(pcols,pver)  ! Detraining cld H20 from shallow + deep convections ! ADDED AHK (28/Feb/2023)
+   real(r8), intent(in) :: dlf(pcols,pver)  ! Detraining cld H20 from shallow + deep convections ! ADDED AHK (28/Feb/2023)
    real(r8) liq_or_mixed                   ! determine if the detraining cld is liquid or ice
 
    ! Cloud fraction used for precipitation.
@@ -2153,6 +2157,7 @@ subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf, diag, cam_in, cam_out, m
    lqice(:)        = .false.
    lqice(ixcldliq) = .true.
    lqice(ixnumliq) = .true.
+
    do it = 1, num_steps
       ! ADDED AHK (28/Feb/2023)
       ! move detrained liquid into the MG subcycle loop.
@@ -2191,6 +2196,7 @@ subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf, diag, cam_in, cam_out, m
         call physics_update(state_loc, ptend_loc, dtime/num_steps)
 
       end if
+      
       ! Pack input variables that are updated during substeps.
       packed_t = packer%pack(state_loc%t)
       packed_q = packer%pack(state_loc%q(:,:,1))
@@ -2368,6 +2374,11 @@ subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf, diag, cam_in, cam_out, m
       ! Sum into overall ptend
       call physics_ptend_sum(ptend_loc, ptend, ncol)
 
+      ! ADDED AHK (21/Mar/2023)
+      if ( dribble_cldliq ) then
+        ptend_loc%q(:,:,ixcldliq) = 0._r8
+      end if
+
       ! Update local state
       call physics_update(state_loc, ptend_loc, dtime/num_steps)
 
@@ -2387,6 +2398,7 @@ subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf, diag, cam_in, cam_out, m
  
 
    end do
+
    call t_stopf('micro_mg_cam_tend_loop')
 
    call t_startf('micro_mg_cam_tend_fini')

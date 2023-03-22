@@ -2163,6 +2163,12 @@ Detrained liquid water is applied before calculating MG
 Default: .false.
 </entry>
 
+<entry id="micro_dribble_cldliq" type="logical" category="microphys"
+       group="micro_mg_nl" valid_values="" >
+Dribble CLDLIQ ptend during MG loop
+Default: .false.
+</entry>
+
 <entry id="micro_mg_precip_frac_method" type="char*16" category="microphys"
        group="micro_mg_nl" valid_values="max_overlap,in_cloud,mass_gradient" >
 Type of precipitation fraction.
