@@ -129,6 +129,7 @@ module clubb_intr
   logical            :: history_budget
 
   integer            :: no_dlf_liq     ! ADDED AHK (24/Feb/2023)
+  logical            :: do_detrain_before_clubb     ! ADDED AHK (24/Feb/2023)
 
   integer            :: history_budget_histfile_num
   integer            :: edsclr_dim       ! Number of scalars to transport in CLUBB
@@ -393,7 +394,7 @@ end subroutine clubb_init_cnst
     namelist /clubbpbl_diff_nl/ clubb_cloudtop_cooling, clubb_rainevap_turb, clubb_expldiff, &
                                 clubb_do_adv, clubb_do_deep, clubb_timestep, clubb_stabcorrect, &
                                 clubb_rnevap_effic, clubb_liq_deep, clubb_liq_sh, clubb_ice_deep, &
-                                no_dlf_liq, & ! ADDED AHK (24/Feb/2023)
+                                no_dlf_liq, do_detrain_before_clubb,& ! ADDED AHK (24/Feb/2023)
                                 clubb_ice_sh, clubb_tk1, clubb_tk2, relvar_fix
 
     !----- Begin Code -----
@@ -409,6 +410,7 @@ end subroutine clubb_init_cnst
     clubb_do_adv       = .false.   ! Initialize to false
     clubb_do_deep      = .false.   ! Initialize to false
     no_dlf_liq         = 0   ! ADDED AHK (24/Feb/2023) 0 = ctrl, 1=dlf_liq.eq.0, 2= both dlf_liq and dlf_ice .eq. 0
+    do_detrain_before_clubb= .false.   ! ADDED AHK (24/Feb/2023) 0 = ctrl, 1=dlf_liq.eq.0, 2= both dlf_liq and dlf_ice .eq. 0
     !  Read namelist to determine if CLUBB history should be called
     if (masterproc) then
       iunit = getunit()
@@ -454,6 +456,7 @@ end subroutine clubb_init_cnst
       call mpibcast(clubb_tk2,                1,   mpir8,   0, mpicom)
       call mpibcast(relvar_fix,               1,   mpilog,  0, mpicom)
       call mpibcast(no_dlf_liq,               1,   mpiint,  0, mpicom) ! ADDED AHK (24/Feb/2023)
+      call mpibcast(do_detrain_before_clubb,  1,   mpilog,  0, mpicom) ! ADDED AHK (24/Feb/2023)
 #endif
 
     !  Overwrite defaults if they are true
@@ -1305,6 +1308,7 @@ end subroutine clubb_init_cnst
    real(r8)  qitend(pcols,pver)
    real(r8)  initend(pcols,pver)
    logical            :: lqice(pcnst)
+   logical            :: lqice2(pcnst) ! ADDED AHK
    
    integer :: ixorg
 
@@ -1349,13 +1353,94 @@ end subroutine clubb_init_cnst
    call cnst_get_ind('NUMLIQ',ixnumliq)
    call cnst_get_ind('NUMICE',ixnumice)
 
+   if (do_detrain_before_clubb) then
+   ! --------------------------------------------------------------------------------- !  
+   !  COMPUTE THE ICE CLOUD DETRAINMENT                                                !
+   !  Detrainment of convective condensate into the environment or stratiform cloud    !
+   ! --------------------------------------------------------------------------------- ! 
+   ncol = state%ncol
+   lchnk = state%lchnk
+   call physics_ptend_init(ptend_all, state%psetcols, 'clubb_det')
+   call physics_state_copy(state,state1)
+
+   !  Initialize the shallow convective detrainment rate, will always be zero
+   dlf2(:,:) = 0.0_r8
+
+   lqice(:)        = .false.
+   lqice(ixcldliq) = .true.
+   lqice(ixcldice) = .true.
+   lqice(ixnumliq) = .true.
+   lqice(ixnumice) = .true.
+    
+   call physics_ptend_init(ptend_loc,state%psetcols, 'clubb_det', ls=.true., lq=lqice)
+   
+   call t_startf('ice_cloud_detrain_diag')
+   do k=1,pver
+      do i=1,ncol
+         if( state1%t(i,k) > clubb_tk1 ) then
+            dum1 = 0.0_r8
+         elseif ( state1%t(i,k) < clubb_tk2 ) then
+            dum1 = 1.0_r8
+         else
+            !Note: Denominator is changed from 30.0_r8 to (clubb_tk1 - clubb_tk2),
+            !(clubb_tk1 - clubb_tk2) is also 30.0 but it introduced a non-bfb change
+            dum1 = ( clubb_tk1 - state1%t(i,k) ) /(clubb_tk1 - clubb_tk2)
+         endif
+        
+         ptend_loc%q(i,k,ixcldliq) = dlf(i,k) * ( 1._r8 - dum1 )
+         ptend_loc%q(i,k,ixcldice) = dlf(i,k) * dum1
+         ptend_loc%q(i,k,ixnumliq) = 3._r8 * ( max(0._r8, ( dlf(i,k) - dlf2(i,k) )) * ( 1._r8 - dum1 ) ) &
+                                     / (4._r8*3.14_r8* clubb_liq_deep**3*997._r8) + & ! Deep    Convection
+                                     3._r8 * (                         dlf2(i,k)    * ( 1._r8 - dum1 ) ) &
+                                     / (4._r8*3.14_r8*clubb_liq_sh**3*997._r8)     ! Shallow Convection 
+         ptend_loc%q(i,k,ixnumice) = 3._r8 * ( max(0._r8, ( dlf(i,k) - dlf2(i,k) )) *  dum1 ) &
+                                     / (4._r8*3.14_r8*clubb_ice_deep**3*500._r8) + & ! Deep    Convection
+                                     3._r8 * (                         dlf2(i,k)    *  dum1 ) &
+                                     / (4._r8*3.14_r8*clubb_ice_sh**3*500._r8)     ! Shallow Convection
+         ptend_loc%s(i,k)          = dlf(i,k) * dum1 * latice
+        if(no_dlf_liq.ge.1) then ! ADDED AHK (24/Feb/2023) 
+         ptend_loc%q(i,k,ixcldliq) = 0.0_r8
+         ptend_loc%q(i,k,ixnumliq) = 0.0_r8
+        end if
+        if (no_dlf_liq.ge.2) then
+         ptend_loc%q(i,k,ixcldice) = 0.0_r8
+         ptend_loc%q(i,k,ixnumice) = 0.0_r8
+         ptend_loc%s(i,k) = 0.0_r8
+        end if
+         ! Only rliq is saved from deep convection, which is the reserved
+         ! liquid.  We need to keep
+         !   track of the integrals of ice and static energy that is effected
+         !   from conversion to ice
+         !   so that the energy checker doesn't complain.
+         det_s(i)                  = det_s(i) + ptend_loc%s(i,k)*state1%pdel(i,k)/gravit
+         det_ice(i)                = det_ice(i) - ptend_loc%q(i,k,ixcldice)*state1%pdel(i,k)/gravit
+
+      enddo
+   enddo
+
+   det_ice(:ncol) = det_ice(:ncol)/1000._r8  ! divide by density of water
+   call t_stopf('ice_cloud_detrain_diag')
+
+   call outfld( 'DPDLFLIQ', ptend_loc%q(:,:,ixcldliq), pcols, lchnk)
+   call outfld( 'DPDLFICE', ptend_loc%q(:,:,ixcldice), pcols, lchnk)
+   call outfld( 'DPDLFT',   ptend_loc%s(:,:)/cpair, pcols, lchnk)
+
+   call physics_ptend_sum(ptend_loc,ptend_all,ncol)
+
+   call physics_update(state1,ptend_loc,hdtime)
+   call cnd_diag_checkpoint(diag, 'CUDET'//char_macmic_it, state1, pbuf, cam_in,cam_out)
+
+
+   endif
  !  Initialize physics tendency arrays, copy the state to state1 array to use in this routine
 
    if (.not. micro_do_icesupersat) then    
      call physics_ptend_init(ptend_loc,state%psetcols, 'clubb_ice1', ls=.true., lu=.true., lv=.true., lq=lq)
    endif
 
+   if (.not.do_detrain_before_clubb) then
    call physics_state_copy(state,state1)
+   end if
 
    if (micro_do_icesupersat) then
      naai_idx      = pbuf_get_index('NAAI')
@@ -2255,7 +2340,7 @@ end subroutine clubb_init_cnst
    call outfld( 'CMELIQ',        cmeliq, pcols, lchnk)
 
    !  Update physics tendencies     
-   if (.not. micro_do_icesupersat) then
+   if (.not. micro_do_icesupersat.and. .not.do_detrain_before_clubb) then
       call physics_ptend_init(ptend_all, state%psetcols, 'clubb_ice4')
    endif
    call physics_ptend_sum(ptend_loc,ptend_all,ncol)
@@ -2272,7 +2357,7 @@ end subroutine clubb_init_cnst
    ! ------------------------------------------------------------ !
    ! ------------------------------------------------------------ !
    call t_startf('clubb_tend_cam_diag')
-   
+  if (.not.do_detrain_before_clubb) then 
    ! --------------------------------------------------------------------------------- !  
    !  COMPUTE THE ICE CLOUD DETRAINMENT                                                !
    !  Detrainment of convective condensate into the environment or stratiform cloud    !
@@ -2340,8 +2425,8 @@ end subroutine clubb_init_cnst
   
    call physics_ptend_sum(ptend_loc,ptend_all,ncol)
    call physics_update(state1,ptend_loc,hdtime)
-
    call cnd_diag_checkpoint(diag, 'CUDET'//char_macmic_it, state1, pbuf, cam_in, cam_out) 
+   end if
 
    ! ------------------------------------------------- !
    ! Diagnose relative cloud water variance            !

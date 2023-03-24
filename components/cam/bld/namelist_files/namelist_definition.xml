@@ -2921,6 +2921,12 @@ Switch for dlf liquid
 
 Default: 0
 </entry>
+
+<entry id="do_detrain_before_clubb" type="logical" category="pblrad"
+       group="clubbpbl_diff_nl" valid_values="" >
+Put detrained cloud before CLUBB
+Default: FALSE
+</entry>
 <!-- Clubb tunable parameters -->
 
 <entry id="C1" type="real" category="pblrad"
