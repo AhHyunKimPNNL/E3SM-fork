@@ -130,6 +130,7 @@ module clubb_intr
 
   integer            :: no_dlf_liq     ! ADDED AHK (24/Feb/2023)
   logical            :: do_detrain_before_clubb     ! ADDED AHK (24/Feb/2023)
+  logical            :: clubb_less_cond_heat ! ADDED AHK (31/Mar/2023)
 
   integer            :: history_budget_histfile_num
   integer            :: edsclr_dim       ! Number of scalars to transport in CLUBB
@@ -149,6 +150,7 @@ module clubb_intr
     rc1_cnd_idx, &      ! liquid water in PDF1 for condidiag ADDED AHK (15/Mar/2023)
     rc2_cnd_idx, &      ! liquid water in PDF2 for condidiag ADDED AHK (15/Mar/2023)
     mixf_cnd_idx, &     ! extended liquid water mixing ratio for condidiag ADDED AHK (15/Mar/2023)
+    oldrcm_idx, &       ! cloud water in the previous CLUBB calculation ADDED AHK (31/Mar/2023)
     rtpthlp_idx, &      ! covariance of thetal and rt
     rtp2_idx, &         ! variance of total water
     thlp2_idx, &        ! variance of thetal
@@ -290,6 +292,7 @@ module clubb_intr
     call pbuf_add_field('RC1_cnd',       'physpkg', dtype_r8, (/pcols,pverp/),  rc1_cnd_idx) ! ADDED AHK (24/Feb/2023)
     call pbuf_add_field('RC2_cnd',       'physpkg', dtype_r8, (/pcols,pverp/),  rc2_cnd_idx) ! ADDED AHK (24/Feb/2023)
     call pbuf_add_field('MIXF_cnd',       'physpkg', dtype_r8, (/pcols,pverp/),  mixf_cnd_idx) ! ADDED AHK (24/Feb/2023)
+    call pbuf_add_field('OLDRCM_CLUBB',   'physpkg', dtype_r8, (/pcols,pverp/),  oldrcm_idx) ! ADDED AHK (31/Mar/2023)
     call pbuf_add_field('RTPTHLP_nadv',    'global', dtype_r8, (/pcols,pverp,dyn_time_lvls/), rtpthlp_idx)
     call pbuf_add_field('RTP2_nadv',       'global', dtype_r8, (/pcols,pverp,dyn_time_lvls/), rtp2_idx)
     call pbuf_add_field('THLP2_nadv',      'global', dtype_r8, (/pcols,pverp,dyn_time_lvls/), thlp2_idx)
@@ -394,7 +397,7 @@ end subroutine clubb_init_cnst
     namelist /clubbpbl_diff_nl/ clubb_cloudtop_cooling, clubb_rainevap_turb, clubb_expldiff, &
                                 clubb_do_adv, clubb_do_deep, clubb_timestep, clubb_stabcorrect, &
                                 clubb_rnevap_effic, clubb_liq_deep, clubb_liq_sh, clubb_ice_deep, &
-                                no_dlf_liq, do_detrain_before_clubb,& ! ADDED AHK (24/Feb/2023)
+                                no_dlf_liq, do_detrain_before_clubb,clubb_less_cond_heat,& ! ADDED AHK (24/Feb/2023)
                                 clubb_ice_sh, clubb_tk1, clubb_tk2, relvar_fix
 
     !----- Begin Code -----
@@ -410,7 +413,8 @@ end subroutine clubb_init_cnst
     clubb_do_adv       = .false.   ! Initialize to false
     clubb_do_deep      = .false.   ! Initialize to false
     no_dlf_liq         = 0   ! ADDED AHK (24/Feb/2023) 0 = ctrl, 1=dlf_liq.eq.0, 2= both dlf_liq and dlf_ice .eq. 0
-    do_detrain_before_clubb= .false.   ! ADDED AHK (24/Feb/2023) 0 = ctrl, 1=dlf_liq.eq.0, 2= both dlf_liq and dlf_ice .eq. 0
+    do_detrain_before_clubb= .false. ! ADDED AHK (24/Feb/2023) 
+    clubb_less_cond_heat = .false.   ! ADDED AHK (31/Mar/2023)
     !  Read namelist to determine if CLUBB history should be called
     if (masterproc) then
       iunit = getunit()
@@ -457,6 +461,7 @@ end subroutine clubb_init_cnst
       call mpibcast(relvar_fix,               1,   mpilog,  0, mpicom)
       call mpibcast(no_dlf_liq,               1,   mpiint,  0, mpicom) ! ADDED AHK (24/Feb/2023)
       call mpibcast(do_detrain_before_clubb,  1,   mpilog,  0, mpicom) ! ADDED AHK (24/Feb/2023)
+      call mpibcast(clubb_less_cond_heat,     1,   mpilog,  0, mpicom) ! ADDED AHK (31/Mar/2023)
 #endif
 
     !  Overwrite defaults if they are true
@@ -923,9 +928,10 @@ end subroutine clubb_init_cnst
        call pbuf_set_field(pbuf2d, chi2_cnd_idx,0.0_r8) ! ADDED AHK (24/Feb/2023)
        call pbuf_set_field(pbuf2d, std_chi1_cnd_idx,0.0_r8) ! ADDED AHK (24/Feb/2023)
        call pbuf_set_field(pbuf2d, std_chi2_cnd_idx,0.0_r8) ! ADDED AHK (24/Feb/2023)
-       call pbuf_set_field(pbuf2d, rc1_cnd_idx,0.0_r8) ! ADDED AHK (24/Feb/2023)
-       call pbuf_set_field(pbuf2d, rc2_cnd_idx,0.0_r8) ! ADDED AHK (24/Feb/2023)
+       call pbuf_set_field(pbuf2d, rc1_cnd_idx, 0.0_r8) ! ADDED AHK (24/Feb/2023)
+       call pbuf_set_field(pbuf2d, rc2_cnd_idx, 0.0_r8) ! ADDED AHK (24/Feb/2023)
        call pbuf_set_field(pbuf2d, mixf_cnd_idx,0.0_r8) ! ADDED AHK (24/Feb/2023)
+       call pbuf_set_field(pbuf2d, oldrcm_idx,  0.0_r8) ! ADDED AHK (31/Mar/2023)
        call pbuf_set_field(pbuf2d, rtpthlp_idx, 0.0_r8)
        call pbuf_set_field(pbuf2d, rtp2_idx,    rt_tol**2)
        call pbuf_set_field(pbuf2d, thlp2_idx,   thl_tol**2)
@@ -1209,6 +1215,7 @@ end subroutine clubb_init_cnst
    real(r8) :: vthl1(pcols,pverp)               ! Variance on liquid water potential temperature  PDF1   [?] ADDED AHK (10/Mar/2023)
    real(r8) :: vthl2(pcols,pverp)               ! Variance on liquid water potential temperature  PDF2   [?] ADDED AHK (10/Mar/2023)
    real(r8) :: rrtthl(pcols,pverp)              ! Correlation of r_t and th_l (both components)  [?] ADDED AHK (10/Mar/2023)
+   real(r8), pointer, dimension(:,:) :: oldrcm  ! cloud water in the previous CLUBB subcycle
    real(r8) :: cloud_frac(pcols,pverp)          ! CLUBB cloud fraction                          [fraction]
    real(r8) :: rcm_in_layer(pcols,pverp)        ! CLUBB in-cloud liquid water mixing ratio      [kg/kg]
    real(r8) :: cloud_cover(pcols,pverp)         ! CLUBB in-cloud cloud fraction                 [fraction]
@@ -1320,7 +1327,7 @@ end subroutine clubb_init_cnst
    det_s(:)   = 0.0_r8
    det_ice(:) = 0.0_r8
 
-   if (macmic_it > 99) then
+   if (macmic_it > 250) then
       call endrun('clubb_tend_cam:  macmic_it > 99. Revise checkpoint name when calling cnd_diag_checkpoint.')
    end if
    write(char_macmic_it,'(i2.2)') macmic_it
@@ -1471,6 +1478,7 @@ end subroutine clubb_init_cnst
    call pbuf_get_field(pbuf, rc1_cnd_idx, rc1) ! ADDED AHK (24/Feb/2023)
    call pbuf_get_field(pbuf, rc2_cnd_idx, rc2) ! ADDED AHK (24/Feb/2023)
    call pbuf_get_field(pbuf, mixf_cnd_idx, mixf) ! ADDED AHK (24/Feb/2023)
+   call pbuf_get_field(pbuf, oldrcm_idx,  oldrcm) ! ADDED AHK (24/Feb/2023)
    call pbuf_get_field(pbuf, rtpthlp_idx, rtpthlp, start=(/1,1,itim_old/), kount=(/pcols,pverp,1/))
    call pbuf_get_field(pbuf, rtp2_idx,    rtp2,    start=(/1,1,itim_old/), kount=(/pcols,pverp,1/))
    call pbuf_get_field(pbuf, thlp2_idx,   thlp2,   start=(/1,1,itim_old/), kount=(/pcols,pverp,1/))
@@ -1870,7 +1878,6 @@ end subroutine clubb_init_cnst
       rtpthlp_forcing(1:pverp) = 0._r8
  
       ice_supersat_frac(1:pverp) = 0._r8
- 
       !  Set stats output and increment equal to CLUBB and host dt
       stats_tsamp = dtime
       stats_tout  = hdtime
@@ -1933,7 +1940,6 @@ end subroutine clubb_init_cnst
          if (k .ne. 1) then
             pre_in(k)    = prer_evap(i,pverp-k+1)
          endif
-
          !  Initialize these to prevent crashing behavior
          rcm_out(k)          = 0._r8
          rcm_out_zm(k)       = 0._r8 ! ADDED AHK (14/Mar/2023)
@@ -2195,7 +2201,6 @@ end subroutine clubb_init_cnst
           do ixind=1,edsclr_dim
               edsclr_out(k,ixind) = edsclr_in(pverp-k+1,ixind)
           enddo
-
       enddo 
      
       !  Fill up arrays needed for McICA.  Note we do not want the ghost point,
@@ -2251,6 +2256,19 @@ end subroutine clubb_init_cnst
          ptend_loc%v(i,k)   = (vm(i,k)-state1%v(i,k))/hdtime             ! north-south wind
          ptend_loc%q(i,k,ixq) = (rtm(i,k)-rcm(i,k)-state1%q(i,k,ixq))/hdtime ! water vapor
          ptend_loc%q(i,k,ixcldliq) = (rcm(i,k)-state1%q(i,k,ixcldliq))/hdtime   ! Tendency of liquid water
+         ! ADDED AHK (31/Mar/2023)
+         ! if cloud fraction is smaller than the previous CLUBB's calculation,
+         ! remove the condensation heat of cloud water.
+         if (clubb_less_cond_heat) then
+           if((macmic_it.gt.1).and.(ptend_loc%q(i,k,ixcldliq).gt.0._r8)) then
+             if(oldrcm(i,k).ge.rcm(i,k)) then
+               !thlm(i,k)  = state1%t(i,k)*exner_clubb(i,k)-(latvap/cpair)*state1%q(i,k,ixcldliq)
+
+               clubb_s(k) = clubb_s(k) + (latvap *  (-rcm(i,k)+state1%q(i,k,ixcldliq))   )
+             endif
+           endif
+         endif
+         oldrcm(i,k) = rcm(i,k)
          ptend_loc%s(i,k)   = (clubb_s(k)-state1%s(i,k))/hdtime          ! Tendency of static energy
 
          if (clubb_do_adv) then
@@ -2520,7 +2538,6 @@ end subroutine clubb_init_cnst
          !wpthlp(i,k) = wpthlp_output(i,k) 
       enddo
    enddo
-   
    ! --------------------------------------------------------------------------------- ! 
    !  Diagnose some quantities that are computed in macrop_tend here.                  !
    !  These are inputs required for the microphysics calculation.                      !

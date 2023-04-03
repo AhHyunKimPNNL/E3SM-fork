@@ -2927,6 +2927,11 @@ Default: 0
 Put detrained cloud before CLUBB
 Default: FALSE
 </entry>
+<entry id="clubb_less_cond_heat" type="logical" category="pblrad"
+       group="clubbpbl_diff_nl" valid_values="" >
+Do not include condensation heat due to cloud water when the cloud fraction is smaller than the previous CLUBB's calculation
+Default: FALSE
+</entry>
 <!-- Clubb tunable parameters -->
 
 <entry id="C1" type="real" category="pblrad"
